@@ -1,0 +1,17 @@
+runtime: python311
+instance_class: F2
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2
+
+env_variables:
+  APP_ENV: "production"
+  POLL_INTERVAL_MINUTES: "15"
+  # Set these in Google Cloud Console or via local environment injection
+  AI_PROVIDER: "gemini" 
+  GEMINI_API_KEY: "PLACEHOLDER_KEY"
+  GROQ_API_KEY: "PLACEHOLDER_KEY"
+  FIREBASE_SERVICE_ACCOUNT_JSON: "PLACEHOLDER_JSON"
+
+entrypoint: uvicorn main:app --host 0.0.0.0 --port $PORT
