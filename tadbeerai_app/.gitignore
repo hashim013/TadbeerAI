@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Ignore Firebase configuration secrets
+lib/firebase_options.dart
+
 # Symbolication related
 app.*.symbols
 
