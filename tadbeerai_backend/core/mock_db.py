@@ -21,6 +21,8 @@ DEFAULT_STATE = {
     "trade_hold_flag": False,
     "alternate_supply_active": False,
     "supply_chain_delay_days": 0,
+    "fbr_tax_rate": 18.0,
+    "sbr_tax_rate": 13.0,
 }
 
 

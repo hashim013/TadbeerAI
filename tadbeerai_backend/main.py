@@ -52,6 +52,47 @@ def refresh_feed() -> list[dict]:
     print("[Scheduler] Refreshing RSS feed...")
     os.makedirs(DATA_DIR, exist_ok=True)
     raw = fetch_all_feeds()
+
+    # Load and merge mock news from mock_db/news_feed.json
+    try:
+        from email.utils import parsedate_to_datetime
+        from datetime import datetime
+        mock_feed_path = os.path.join(os.path.dirname(__file__), "mock_db", "news_feed.json")
+        if os.path.exists(mock_feed_path):
+            with open(mock_feed_path, "r", encoding="utf-8") as f:
+                mock_data = json.load(f)
+                mock_news = mock_data.get("news", [])
+                
+                formatted_mock_news = []
+                for item in mock_news:
+                    pub_str = item.get("published", "")
+                    try:
+                        pub_iso = parsedate_to_datetime(pub_str).isoformat()
+                    except Exception:
+                        pub_iso = datetime.now().isoformat()
+                        
+                    formatted_mock_news.append({
+                        "id": str(item.get("id")),
+                        "title": item.get("title", ""),
+                        "url": item.get("link", ""),
+                        "source": item.get("source", ""),
+                        "preview_text": item.get("summary", "")[:200],
+                        "published_at": pub_iso,
+                        "image_url": item.get("image_url"),
+                        "raw_text": item.get("summary", "") + " " + item.get("title", ""),
+                    })
+                
+                seen_urls = {item["url"] for item in raw}
+                merged_count = 0
+                for item in formatted_mock_news:
+                    if item["url"] not in seen_urls:
+                        raw.append(item)
+                        seen_urls.add(item["url"])
+                        merged_count += 1
+                print(f"[Scheduler] Merged {merged_count} articles from news_feed.json")
+    except Exception as e:
+        print(f"[Scheduler] Failed to load/merge mock news_feed.json: {e}")
+
     filtered = score_and_filter(raw)
     top_domain = filtered[0]["domain"] if filtered else "none"
     _feed_trace = build_feed_trace(len(raw), len(filtered), top_domain)
@@ -304,6 +345,35 @@ def get_trace():
         return data.get("agent_trace", [])
     except FileNotFoundError:
         return _feed_trace if _feed_trace else []
+
+
+# ==================== STATE MANAGEMENT ENDPOINTS ====================
+
+
+@app.get("/state")
+def get_state():
+    """GET /state — Get the current business state including FBR and SBR tax rates."""
+    try:
+        firestore = get_firestore_client()
+        state = firestore.get_business_state()
+        return state
+    except Exception as e:
+        print(f"[State] Error fetching state: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/state")
+def update_state(updates: dict):
+    """POST /state — Update the business state directly (e.g. adjust FBR/SBR tax rates)."""
+    try:
+        firestore = get_firestore_client()
+        success, err = firestore.update_business_state(updates)
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+        return {"status": "success", "state": firestore.get_business_state()}
+    except Exception as e:
+        print(f"[State] Error updating state: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ==================== USER REGISTRATION ENDPOINTS ====================

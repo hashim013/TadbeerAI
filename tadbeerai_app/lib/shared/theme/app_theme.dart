@@ -35,17 +35,17 @@ class TColors {
   static const coralLight = Color(0xFFE0F7FA);
   static const coralDark = Color(0xFF00838F);
 
-  // Neutrals (Light Mode - tinted with slate blue for high-end look)
-  static const bg = Color(0xFFF4F7FB);
+  // Neutrals (Light Mode - Tinted Navy/Ice-blue)
+  static const bg = Color(0xFFF0F4F8); // Tinted soft ice-blue
   static const surface = Color(0xFFFFFFFF);
-  static const surfaceAlt = Color(0xFFEBF0F6);
-  static const border = Color(0xFFDCE4EE);
-  static const borderLight = Color(0xFFEAF0F7);
+  static const surfaceAlt = Color(0xFFE2E9F3); // Tinted surface accent
+  static const border = Color(0xFFCBD6E2); // Light navy-gray border
+  static const borderLight = Color(0xFFEBF0F6);
 
-  // Text (Light Mode - Slate gray instead of plain black/gray)
-  static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF475569);
-  static const textTertiary = Color(0xFF64748B);
+  // Text (Light Mode - Deep Navy Charcoal)
+  static const textPrimary = Color(0xFF0A1128); // Very dark navy text
+  static const textSecondary = Color(0xFF3C4D6F); // Medium navy-gray text
+  static const textTertiary = Color(0xFF647B9B); // Soft navy text
 
   // Urgency dots
   static const urgencyHigh = Color(0xFFE24B4A);
@@ -53,21 +53,22 @@ class TColors {
   static const urgencyLow = Color(0xFF00E676);
 
   // Terminal (exec log)
-  static const termBg = Color(0xFF051126); // Matches Deep Navy
-  static const termText = Color(0xFFE2F1FF);
+  static const termBg = Color(0xFF020714); // Midnight Navy (from icon)
+  static const termText = Color(0xFFE6F0FF);
   static const termOk = Color(0xFF00E676);
   static const termInfo = Color(0xFF00E5FF);
   static const termWarn = Color(0xFFEF9F27);
   static const termError = Color(0xFFE24B4A);
-  static const termMuted = Color(0xFF8EA5C1);
+  static const termMuted = Color(0xFF8BA2C0);
 
-  // Dark Mode specific (Directly taken from the TadbeerAI logo background/glows)
-  static const darkBg = Color(0xFF030A16); // Deep Navy-Black
-  static const darkSurface = Color(0xFF091424); // Rich Dark Navy
-  static const darkSurfaceAlt = Color(0xFF0F223C);
-  static const darkBorder = Color(0xFF1B355A);
-  static const darkTextPrimary = Color(0xFFE2F1FF); // Ice White
-  static const darkTextSecondary = Color(0xFF8EA5C1);
+  // Dark Mode specific (App Icon Midnight Navy & Glows)
+  static const darkBg = Color(0xFF020714); // Midnight Navy background
+  static const darkSurface = Color(0xFF081225); // Rich navy card surface
+  static const darkSurfaceAlt = Color(0xFF0F203B); // Navy accent surface
+  static const darkBorder = Color(0xFF18315B); // Brand navy border
+  static const darkTextPrimary = Color(0xFFE6F0FF); // Ice White text
+  static const darkTextSecondary =
+      Color(0xFF8BA2C0); // Slate navy secondary text
 }
 
 // ─────────────────────────────────────────────
@@ -150,10 +151,10 @@ class TSpace {
 // MATERIAL THEME
 // ─────────────────────────────────────────────
 ThemeData buildAppTheme() {
-  final base = GoogleFonts.dmSansTextTheme();
+  final base = GoogleFonts.plusJakartaSansTextTheme();
   return ThemeData(
     useMaterial3: true,
-    fontFamily: GoogleFonts.dmSans().fontFamily,
+    fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
     textTheme: base,
     colorScheme: ColorScheme.fromSeed(
       seedColor: TColors.primary,
@@ -215,10 +216,10 @@ ThemeData buildAppTheme() {
 }
 
 ThemeData buildDarkAppTheme() {
-  final base = GoogleFonts.dmSansTextTheme(ThemeData.dark().textTheme);
+  final base = GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme);
   return ThemeData(
     useMaterial3: true,
-    fontFamily: GoogleFonts.dmSans().fontFamily,
+    fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
     textTheme: base,
     colorScheme: ColorScheme.fromSeed(
       seedColor: TColors.primary,
@@ -235,7 +236,10 @@ ThemeData buildDarkAppTheme() {
         statusBarIconBrightness: Brightness.light,
       ),
       iconTheme: IconThemeData(color: TColors.darkTextPrimary),
-      titleTextStyle: TextStyle(color: TColors.darkTextPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+      titleTextStyle: TextStyle(
+          color: TColors.darkTextPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600),
     ),
     tabBarTheme: const TabBarThemeData(
       dividerColor: Colors.transparent,
@@ -276,7 +280,8 @@ ThemeData buildDarkAppTheme() {
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: TColors.primary, width: 1.5),
       ),
-      hintStyle: const TextStyle(color: TColors.darkTextSecondary, fontSize: 13),
+      hintStyle:
+          const TextStyle(color: TColors.darkTextSecondary, fontSize: 13),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     ),
   );
@@ -294,9 +299,12 @@ extension AppThemeContext on BuildContext {
   Color get tSurfaceAlt => isDark ? TColors.darkSurfaceAlt : TColors.surfaceAlt;
   Color get tBorder => isDark ? TColors.darkBorder : TColors.border;
   Color get tBorderLight => isDark ? TColors.darkBorder : TColors.borderLight;
-  Color get tTextPrimary => isDark ? TColors.darkTextPrimary : TColors.textPrimary;
-  Color get tTextSecondary => isDark ? TColors.darkTextSecondary : TColors.textSecondary;
-  Color get tTextTertiary => isDark ? TColors.darkTextSecondary : TColors.textTertiary;
+  Color get tTextPrimary =>
+      isDark ? TColors.darkTextPrimary : TColors.textPrimary;
+  Color get tTextSecondary =>
+      isDark ? TColors.darkTextSecondary : TColors.textSecondary;
+  Color get tTextTertiary =>
+      isDark ? TColors.darkTextSecondary : TColors.textTertiary;
 
   // Text Styles
   TextStyle get tHeading1 => TText.heading1.copyWith(color: tTextPrimary);

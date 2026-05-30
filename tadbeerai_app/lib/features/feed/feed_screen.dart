@@ -61,20 +61,6 @@ class _FeedScreenState extends State<FeedScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          final homeState = context.findAncestorStateOfType<HomeScreenState>();
-          if (homeState != null) {
-            homeState.setIndex(1);
-          }
-        },
-        backgroundColor: TColors.primary,
-        foregroundColor: Colors.white,
-        icon: Icon(Icons.edit_rounded, size: 18),
-        label:
-            Text('Paste news', style: TextStyle(fontWeight: FontWeight.w600)),
-        elevation: 2,
-      ),
     );
   }
 
@@ -200,7 +186,7 @@ class _FeedScreenState extends State<FeedScreen> {
             onAct: () => _onAct(item),
           )
               .animate()
-              .fadeIn(delay: Duration(milliseconds: 80 * i))
+              .fadeIn(delay: Duration(milliseconds: 50 * (i < 6 ? i : 0)))
               .slideY(begin: 0.05, end: 0);
         },
       ),

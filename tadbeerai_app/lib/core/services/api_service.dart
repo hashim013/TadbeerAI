@@ -129,4 +129,28 @@ class ApiService {
     }
     throw Exception('Failed to load trace');
   }
+
+  static Future<Map<String, dynamic>> getState() async {
+    final res = await http
+        .get(Uri.parse('$_base/state'), headers: await _headers())
+        .timeout(_timeout);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load state');
+  }
+
+  static Future<Map<String, dynamic>> updateState(Map<String, dynamic> updates) async {
+    final res = await http
+        .post(
+          Uri.parse('$_base/state'),
+          headers: await _headers(),
+          body: jsonEncode(updates),
+        )
+        .timeout(_timeout);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to update state');
+  }
 }

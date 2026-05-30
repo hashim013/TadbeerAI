@@ -34,7 +34,7 @@ def score_and_filter(articles: list[dict]) -> list[dict]:
     pakistan_keywords = [
         "pakistan", "pakistani", "pkr", "rupee", "rs.", "imf", "sbp",
         "ogra", "nepra", "karachi", "lahore", "islamabad", "peshawar",
-        "quetta", "rawalpindi", "fbr", "secp", "psx", "kse", "cpec"
+        "quetta", "rawalpindi", "fbr", "sbr", "tax", "sst", "gst", "secp", "psx", "kse", "cpec"
     ]
 
     for article in articles:
@@ -44,6 +44,11 @@ def score_and_filter(articles: list[dict]) -> list[dict]:
         # Strict Pakistan relevance check
         is_pakistan = any(kw in text_lower for kw in pakistan_keywords)
         if not is_pakistan:
+            continue
+
+        # Check for Indian-related topics to filter out
+        indian_keywords = ["india", "indian", "modi", "new delhi", "bjp", "hindu", "gandhi", "kashmir", "loc ", "line of control"]
+        if any(kw in text_lower for kw in indian_keywords):
             continue
 
         # Reject non-business articles using word boundary regex to avoid false positives

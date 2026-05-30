@@ -41,28 +41,27 @@ class FirestoreClient:
             logger.warning("[Firestore] Firebase Admin SDK not installed. Will use mock fallback.")
 
     def _init_firebase(self) -> None:
-        """Initialize Firebase Admin SDK from service account JSON."""
+        """Initialize Firebase Admin SDK from service account JSON or default credentials."""
         try:
             service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 
-            if not service_account_json:
-                logger.warning("[Firestore] FIREBASE_SERVICE_ACCOUNT_JSON env var not set. Using mock fallback.")
-                return
+            if service_account_json:
+                # Parse JSON from env var
+                service_account_dict = json.loads(service_account_json)
 
-            # Parse JSON from env var
-            service_account_dict = json.loads(service_account_json)
-
-            # Initialize Firebase (only once)
-            if not firebase_admin._apps:
-                cred = credentials.Certificate(service_account_dict)
-                firebase_admin.initialize_app(cred)
+                # Initialize Firebase (only once)
+                if not firebase_admin._apps:
+                    cred = credentials.Certificate(service_account_dict)
+                    firebase_admin.initialize_app(cred)
+            else:
+                # Try default credentials/initialization
+                if not firebase_admin._apps:
+                    firebase_admin.initialize_app()
 
             self.db = firestore.client()
             self.available = True
             logger.info("[Firestore] ✅ Firebase initialized successfully")
 
-        except json.JSONDecodeError as e:
-            logger.error(f"[Firestore] ❌ Invalid JSON in FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
         except Exception as e:
             logger.error(f"[Firestore] ❌ Failed to initialize Firebase: {e}")
 
@@ -261,6 +260,8 @@ class FirestoreClient:
             "trade_hold_flag": False,
             "alternate_supply_active": False,
             "supply_chain_delay_days": 0,
+            "fbr_tax_rate": 18.0,
+            "sbr_tax_rate": 13.0,
             "last_updated": datetime.utcnow().isoformat(),
             "updated_by": "initialization"
         }
@@ -288,6 +289,8 @@ class FirestoreClient:
                 "trade_hold_flag": mock.get("trade_hold_flag", False),
                 "alternate_supply_active": mock.get("alternate_supply_active", False),
                 "supply_chain_delay_days": mock.get("supply_chain_delay_days", 0),
+                "fbr_tax_rate": mock.get("fbr_tax_rate", 18.0),
+                "sbr_tax_rate": mock.get("sbr_tax_rate", 13.0),
                 "last_updated": datetime.utcnow().isoformat(),
                 "updated_by": "mock_fallback"
             }

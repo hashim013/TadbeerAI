@@ -57,7 +57,7 @@ class NewsItem {
         rawText: json['raw_text'] as String?,
         publishedAt: DateTime.parse(json['published_at'] as String),
         urgency: _urgencyFromString(json['urgency'] as String),
-        domain: json['domain'] as String,
+        domain: json['domain'] == 'Supply Chain' ? 'Business Operations' : json['domain'] as String,
         relevanceScore: (json['relevance_score'] as num).toDouble(),
       );
 

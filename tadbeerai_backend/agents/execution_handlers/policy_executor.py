@@ -30,7 +30,13 @@ def execute_policy_action(
 
         after_state = before_state.copy()
 
-        if "audit" in action_description.lower():
+        if "fbr" in action_description.lower() or "fbr" in action_key.lower():
+            after_state["fbr_tax_rate"] = impact_value if impact_value > 0 else 18.0
+            success = True
+        elif "sbr" in action_description.lower() or "sbr" in action_key.lower():
+            after_state["sbr_tax_rate"] = impact_value if impact_value > 0 else 13.0
+            success = True
+        elif "audit" in action_description.lower():
             after_state["audit_pending_flag"] = True
             success = True
         else:
