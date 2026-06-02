@@ -36,6 +36,7 @@ DOMAIN_KEYWORDS = {
         "petrol", "fuel", "gas price", "electricity", "oil price", "ogra", "pso",
         "energy crisis", "power outage", "bijli", "load shedding", "crude oil",
         "fuel hike", "diesel", "lng", "nepra", "energy sector",
+        "transit", "subsidy", "metro", "transportation", "fare", "fares",
     ],
     "Currency": [
         "rupee", "dollar", "pkr", "usd", "exchange rate", "interbank",
@@ -61,7 +62,7 @@ DOMAIN_KEYWORDS = {
         "interest rate", "inflation rate", "monetary policy",
         "loan rate", "bank rate", "credit growth", "fiscal deficit",
         "budget deficit", "revenue collection", "state bank",
-        "microfinance", "lending rate", "banking sector",
+        "microfinance", "lending rate", "banking sector", "inflation",
     ],
     "Policy": [
         "ministry of finance", "ministry of commerce", "ministry of energy",
@@ -70,6 +71,7 @@ DOMAIN_KEYWORDS = {
         "secp", "fbr", "compliance", "audit", "regulatory",
         "gazette notification", "legislation", "tax reform", "tax policy",
         "government policy", "economic policy", "trade policy",
+        "stipend", "scholarship", "tuition", "education",
     ],
     "Trade": [
         "import duty", "export", "trade deficit", "balance of payments",

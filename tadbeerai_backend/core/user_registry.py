@@ -147,7 +147,8 @@ class UserRegistry:
                             "notify_email": d.get("notify_email") if d.get("notify_email") is not None else True,
                             "notify_push": d.get("notify_push") if d.get("notify_push") is not None else True,
                             "fcm_token": d.get("fcm_token") or "",
-                            "domains": d.get("domains") or ["all"]
+                            "domains": d.get("domains") or ["all"],
+                            "mode": d.get("mode") or "account"
                         })
                 except Exception as e_users:
                     logger.error(f"[UserRegistry] Failed to fetch from 'users' collection: {e_users}")
@@ -169,7 +170,8 @@ class UserRegistry:
                                 "notify_email": d.get("notify_email") if d.get("notify_email") is not None else True,
                                 "notify_push": d.get("notify_push") if d.get("notify_push") is not None else True,
                                 "fcm_token": d.get("fcm_token") or "",
-                                "domains": d.get("domains") or ["all"]
+                                "domains": d.get("domains") or ["all"],
+                                "mode": d.get("mode") or "account"
                             })
                 except Exception as e_reg:
                     logger.error(f"[UserRegistry] Failed to fetch from 'registered_users' collection: {e_reg}")
@@ -207,7 +209,8 @@ class UserRegistry:
                         "notify_email": d.get("notify_email") if d.get("notify_email") is not None else True,
                         "notify_push": d.get("notify_push") if d.get("notify_push") is not None else True,
                         "fcm_token": d.get("fcm_token") or "",
-                        "domains": d.get("domains") or ["all"]
+                        "domains": d.get("domains") or ["all"],
+                        "mode": d.get("mode") or "account"
                     }
                 
                 # Try 'registered_users' second
@@ -223,7 +226,8 @@ class UserRegistry:
                         "notify_email": d.get("notify_email") if d.get("notify_email") is not None else True,
                         "notify_push": d.get("notify_push") if d.get("notify_push") is not None else True,
                         "fcm_token": d.get("fcm_token") or "",
-                        "domains": d.get("domains") or ["all"]
+                        "domains": d.get("domains") or ["all"],
+                        "mode": d.get("mode") or "account"
                     }
             except Exception as e:
                 logger.error(f"[UserRegistry] ❌ Firestore read failed: {e}")

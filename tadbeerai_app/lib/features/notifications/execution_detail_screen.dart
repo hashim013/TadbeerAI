@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../core/models/execution_notification.dart';
 import '../../core/models/tadbeer_models.dart';
+import '../../core/providers/language_provider.dart';
 import '../../core/services/alert_store.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/shared_widgets.dart';
@@ -21,7 +22,7 @@ class ExecutionDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: context.tBg,
       appBar: TTopBar(
-        title: 'Execution alert',
+        title: 'Execution alert'.tr(context),
         subtitle: _formatTime(n.createdAt),
       ),
       body: ListView(
@@ -35,16 +36,16 @@ class ExecutionDetailScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const TBadge(
-                      label: 'Executed',
+                    TBadge(
+                      label: 'Executed'.tr(context),
                       color: TColors.teal,
                       bg: TColors.tealLight,
                       icon: Icons.check_circle_rounded,
                     ),
                     const Spacer(),
                     if (!n.read)
-                      const TBadge(
-                        label: 'New',
+                      TBadge(
+                        label: 'New'.tr(context),
                         color: TColors.primary,
                         bg: TColors.primaryLight,
                       ),
@@ -56,13 +57,13 @@ class ExecutionDetailScreen extends StatelessWidget {
                 Text(n.summary, style: context.tBodyMd),
                 const SizedBox(height: 12),
                 Text(n.insightSummary,
-                    style: context.tBodyMd.copyWith(
-                        color: TColors.primaryDark, height: 1.5)),
+                    style: context.tBodyMd
+                        .copyWith(color: TColors.primaryDark, height: 1.5)),
               ],
             ),
           ).animate().fadeIn(),
           const SizedBox(height: 16),
-          const TSectionLabel(label: 'Delivery report'),
+          TSectionLabel(label: 'Delivery report'.tr(context)),
           const SizedBox(height: 8),
           _DeliveryChannelCard(
             icon: Icons.sms_rounded,
@@ -87,7 +88,7 @@ class ExecutionDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           TPrimaryButton(
-            label: 'View full result',
+            label: 'View full result'.tr(context),
             icon: Icons.open_in_new_rounded,
             onTap: () {
               AlertStore.instance.markExecutionRead(n.id);
@@ -159,11 +160,13 @@ class _DeliveryChannelCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: context.tBodyMd
-                        .copyWith(fontWeight: FontWeight.w600)),
+                Text(label.tr(context),
+                    style:
+                        context.tBodyMd.copyWith(fontWeight: FontWeight.w600)),
                 Text(
-                  skipped ? 'Skipped (disabled or missing contact)' : 'Delivered',
+                  skipped
+                      ? 'Skipped (disabled or missing contact)'.tr(context)
+                      : 'Delivered'.tr(context),
                   style: context.tCaption,
                 ),
               ],

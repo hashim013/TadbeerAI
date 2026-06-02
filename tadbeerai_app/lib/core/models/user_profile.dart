@@ -22,7 +22,6 @@ class UserProfile {
   final bool profileComplete;
 
   bool get canReceiveNotifications =>
-      profileComplete &&
       (notifySms || notifyEmail || notifyPush) &&
       (phone.isNotEmpty || email.isNotEmpty);
 

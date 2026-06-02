@@ -1,4 +1,8 @@
+# Google App Engine Standard - Python 3.11 + FastAPI (uvicorn)
+# Docs: DEPLOY_GCP.md
+
 runtime: python311
+
 instance_class: F2
 
 automatic_scaling:
@@ -8,10 +12,16 @@ automatic_scaling:
 env_variables:
   APP_ENV: "production"
   POLL_INTERVAL_MINUTES: "15"
-  # Set these in Google Cloud Console or via local environment injection
-  AI_PROVIDER: "gemini" 
-  GEMINI_API_KEY: "PLACEHOLDER_KEY"
-  GROQ_API_KEY: "PLACEHOLDER_KEY"
-  FIREBASE_SERVICE_ACCOUNT_JSON: "PLACEHOLDER_JSON"
+  AI_PROVIDER: "gemini"
+  GEMINI_API_KEY: "YOUR_GEMINI_API_KEY_HERE"
+  GEMINI_API_KEY_2: ""
+  GEMINI_API_KEY_3: ""
+  GROQ_API_KEY: "YOUR_GROQ_API_KEY_HERE"
+  GROQ_MODEL: "llama-3.3-70b-versatile"
+  # PASTE YOUR FLATTENED FIREBASE JSON STRING RIGHT HERE INSIDE SINGLE QUOTES:
+  FIREBASE_SERVICE_ACCOUNT_JSON: '{}'
+  GMAIL_USER: "your_email@gmail.com"
+  GMAIL_APP_PASSWORD: "your_gmail_app_password_here"
 
 entrypoint: uvicorn main:app --host 0.0.0.0 --port $PORT
+

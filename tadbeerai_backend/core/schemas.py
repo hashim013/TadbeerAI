@@ -7,6 +7,7 @@ class AnalyseRequest(BaseModel):
     text: Optional[str] = None
     source_url: Optional[str] = None
     language: str = "en"
+    user_profile: Optional[dict] = None
 
 
 class SimulateRequest(BaseModel):
@@ -15,18 +16,19 @@ class SimulateRequest(BaseModel):
     scenario: Optional[str] = None
     user_id: Optional[str] = None
     notify_channels: Optional[list[str]] = None
+    user_profile: Optional[dict] = None
 
 
 class RegisterUserRequest(BaseModel):
     """Register a user for notification alerts. All fields optional for guest mode."""
-    name: Optional[str] = "Guest"
-    phone: Optional[str] = ""       # e.g. "+923001234567"
-    email: Optional[str] = ""       # e.g. "user@gmail.com"
-    notify_sms: bool = True
-    notify_email: bool = True
-    notify_push: bool = True
-    fcm_token: Optional[str] = None
-    domains: list[str] = ["all"]
+    user_id: str
+    category: str
+    name: str
+    email: str
+    phone: str
+    fcm_token: Optional[str] = ""
+    profile_data: Optional[dict] = None
+
 
 
 class UpdateUserRequest(BaseModel):

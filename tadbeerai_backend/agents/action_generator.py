@@ -13,7 +13,7 @@ Give specific actions: "Update delivery fee from Rs.150 to Rs.175" not "consider
 """
 
 
-def generate_actions(insight: dict, impacts: list[dict], domain: str) -> list[dict]:
+def generate_actions(insight: dict, impacts: list[dict], domain: str, user_profile: dict = None, language: str = "en") -> list[dict]:
     """
     Agent 5: Action Generator
     Uses Gemini to generate ranked, quantified, domain-specific actions.
@@ -23,12 +23,53 @@ def generate_actions(insight: dict, impacts: list[dict], domain: str) -> list[di
         for i in impacts
     ]
 
+    lang_rule = ""
+    if language == "ur":
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'title', 'detail', and 'business_math' in Urdu script (Urdu language)."
+    elif language == "roman_ur":
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'title', 'detail', and 'business_math' in Roman Urdu (Urdu written in Latin/English alphabets, e.g. 'Price update karein')."
+    else:
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'title', 'detail', and 'business_math' in English."
+
+    profile_info = ""
+    if user_profile:
+        category = user_profile.get("category", "")
+        city = user_profile.get("city", "")
+        profile_info = f"\nUser Profile: {category} in {city}\n"
+        if category == "employee":
+            salary_range = user_profile.get("salary_range", "")
+            sector = user_profile.get("sector", "")
+            profile_info += f"Monthly salary range: {salary_range}, Sector: {sector}\n"
+            profile_info += "Generate actions suited for employees (e.g. adjust personal budget, optimize travel routes to save fuel, switch to energy-efficient options, renegotiate transit/subsidies).\n"
+        elif category == "shop":
+            shop_type = user_profile.get("shop_type", "")
+            monthly_revenue = user_profile.get("monthly_revenue", "")
+            profile_info += f"Shop type: {shop_type}, Monthly revenue: {monthly_revenue}\n"
+            profile_info += "Generate actions suited for retail shop owners (e.g. modify inventory mix, adjust storefront price lists/fees, reduce non-essential shop operating hours, run promotional bundles).\n"
+        elif category == "business":
+            industry = user_profile.get("industry", "")
+            monthly_turnover = user_profile.get("monthly_turnover", "")
+            profile_info += f"Industry: {industry}, Turnover: {monthly_turnover}\n"
+            profile_info += "Generate actions suited for business owners/SMEs (e.g. hedge currency risk, audit supply chain suppliers, renegotiate corporate billing contracts, adjust client service pricing).\n"
+        elif category == "student":
+            field_of_study = user_profile.get("field_of_study", "")
+            university = user_profile.get("university", "")
+            profile_info += f"Field: {field_of_study}, University: {university}\n"
+            profile_info += "Generate actions suited for students (e.g. apply for university stipends/subsidies, switch to shared student housing or carpooling, reduce monthly educational/lifestyle expenses, find online/tutoring freelance opportunities).\n"
+        profile_info += "Ensure all 3 recommended actions are direct, concrete, and highly customized for the user's specific role category.\n"
+    else:
+        profile_info = "\nGenerate actions suitable for a Pakistan business/SME context.\n"
+
     prompt = f"""
-Generate 3 specific, actionable recommendations for a Pakistan business based on:
+Generate 3 specific, actionable recommendations based on:
 
 INSIGHT: {insight.get('insight_title', '')}
 IMPACTS: {impact_lines}
 DOMAIN: {domain}
+
+{profile_info}
+
+{lang_rule}
 
 Respond with JSON array (ranked by urgency):
 [
@@ -44,7 +85,7 @@ Respond with JSON array (ranked by urgency):
 ]
 
 Rules:
-- Action titles must start with a verb: Update, Draft, Flag, Pause, Increase, Reduce, Send, Set
+- Action titles must start with a verb: Update, Draft, Flag, Pause, Increase, Reduce, Send, Set (or equivalent meaning in Urdu/Roman Urdu)
 - detail must include specific numbers from the insight
 - business_math must calculate recovery/saving/cost in Rs. where possible
 - rank 1 = most urgent

@@ -5,8 +5,10 @@ from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
+
 
 from agents.action_generator import generate_actions
 from agents.content_ingestor import ingest_content
@@ -41,7 +43,49 @@ TRACE_LOG = os.path.join(DATA_DIR, "trace_log.json")
 POLL_MINUTES = int(os.getenv("POLL_INTERVAL_MINUTES", "15"))
 
 _feed_trace: list[dict] = []
-_trace_payload: dict = {"agent_trace": []}
+
+def get_authenticated_user_id(authorization: Optional[str] = Header(None)) -> Optional[str]:
+    """Helper to verify ID token and extract user_id (supporting local fallback if Firebase is disabled)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    id_token = authorization.split("Bearer ")[1]
+    
+    try:
+        from firebase_admin import auth
+        decoded_token = auth.verify_id_token(id_token)
+        return decoded_token["uid"]
+    except Exception as e:
+        client = get_firestore_client()
+        if client.available:
+            print(f"[Auth] Firebase verify_id_token failed in live environment: {e}")
+            raise HTTPException(status_code=401, detail="Invalid authorization token")
+            
+        print(f"[Auth] Firebase verify_id_token failed: {e}. Attempting local JWT decode fallback for development/testing...")
+        try:
+            import base64
+            import json
+            parts = id_token.split('.')
+            if len(parts) >= 2:
+                payload_b64 = parts[1]
+                padding = len(payload_b64) % 4
+                if padding:
+                    payload_b64 += '=' * (4 - padding)
+                payload_bytes = base64.urlsafe_b64decode(payload_b64)
+                decoded_token = json.loads(payload_bytes.decode('utf-8'))
+                user_id = decoded_token.get("uid") or decoded_token.get("user_id") or decoded_token.get("sub")
+                if user_id:
+                    return user_id
+            return id_token
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid authorization token format")
+
+def get_trace_log_path(user_id: Optional[str]) -> str:
+    if not user_id:
+        user_id = "guest"
+    safe_uid = "".join(c for c in user_id if c.isalnum() or c in ("-", "_"))
+    if not safe_uid:
+        safe_uid = "guest"
+    return os.path.join(DATA_DIR, f"trace_log_{safe_uid}.json")
 
 scheduler = BackgroundScheduler()
 
@@ -174,10 +218,11 @@ def health():
 
 
 @app.get("/feed")
-def get_feed(refresh: bool = False):
-    """GET /feed — ranked Pakistan business news for Flutter FeedScreen."""
+def get_feed(refresh: bool = False, category: Optional[str] = None):
+    """GET /feed — Pakistan business news for Flutter FeedScreen (filtered by user category if provided)."""
     cache_exists = os.path.exists(FEED_CACHE)
     should_refresh = refresh or not cache_exists
+    items = []
 
     if cache_exists and not should_refresh:
         # Check file age to auto-expire cache after 10 minutes (600 seconds)
@@ -193,16 +238,63 @@ def get_feed(refresh: bool = False):
                 items = json.load(f)
             if items:
                 print(f"[Feed] Returning {len(items)} cached items")
-                return items
         except Exception as e:
             print(f"[Feed] Cache read error, will refresh: {e}")
+            should_refresh = True
 
-    print("[Feed] Refreshing and scoring feed...")
-    return refresh_feed()
+    if should_refresh:
+        print("[Feed] Refreshing and scoring feed...")
+        items = refresh_feed()
+
+    if category:
+        category_lower = category.lower().strip()
+        
+        KEYWORDS_BY_CATEGORY = {
+            "student": [
+                "student", "university", "education", "stipend", "school", "college", "scholarship", 
+                "youth", "career", "degree", "internship", "tuition", "hnd", "graduat"
+            ],
+            "business": [
+                "business", "company", "corporate", "turnover", "employee", "industry", "export", 
+                "import", "tax", "imf", "sbp", "policy", "startup", "finance", "funding", "audit", 
+                "securities", "trade"
+            ],
+            "shop": [
+                "shop", "retail", "store", "revenue", "inventory", "sales", "consumer", "price", 
+                "delivery", "tax", "importer", "grocer", "supermarket", "pos", "shopkeeper"
+            ],
+            "employee": [
+                "salary", "employee", "job", "wage", "income", "pay", "tax slab", "hiring", 
+                "workforce", "allowance", "pension", "bonus", "recruiting", "unemployment"
+            ]
+        }
+        
+        CATEGORY_MAP = {
+            "shop": "shop",
+            "shopkeeper": "shop",
+            "shop keeper": "shop",
+            "business": "business",
+            "business owner": "business",
+            "employee": "employee",
+            "student": "student"
+        }
+        
+        mapped_cat = CATEGORY_MAP.get(category_lower)
+        if mapped_cat:
+            kws = KEYWORDS_BY_CATEGORY[mapped_cat]
+            filtered = []
+            for item in items:
+                title_desc = (item.get("title", "") + " " + item.get("preview_text", "")).lower()
+                if any(kw in title_desc for kw in kws):
+                    filtered.append(item)
+            print(f"[Feed] Filtered feed for category '{category}' (mapped: '{mapped_cat}'): {len(filtered)}/{len(items)} items")
+            items = filtered
+
+    return items
 
 
-def _run_analyse(request: AnalyseRequest) -> dict:
-    global _trace_payload, _feed_trace
+def _run_analyse(request: AnalyseRequest, user_id: Optional[str] = None) -> dict:
+    global _feed_trace
     timings: dict[str, float] = {}
 
     t0 = time.time()
@@ -226,22 +318,22 @@ def _run_analyse(request: AnalyseRequest) -> dict:
     domain = temp_articles[0]["domain"] if temp_articles else "Finance"
 
     t0 = time.time()
-    insight = extract_insight(ingested, domain)
+    insight = extract_insight(ingested, domain, user_profile=request.user_profile, language=request.language)
     timings["insight"] = time.time() - t0
 
     t0 = time.time()
-    impacts = analyze_impact(insight, domain, ingested["entities"])
+    impacts = analyze_impact(insight, domain, ingested["entities"], request.user_profile, language=request.language)
     timings["impact"] = time.time() - t0
 
     t0 = time.time()
-    actions = generate_actions(insight, impacts, domain)
+    actions = generate_actions(insight, impacts, domain, user_profile=request.user_profile, language=request.language)
     timings["actions"] = time.time() - t0
 
     agent_trace = build_analyse_trace(
         ingested, domain, insight, impacts, actions, timings, feed_trace=_feed_trace
     )
 
-    _trace_payload = {
+    trace_payload = {
         "insight": insight,
         "impacts": impacts,
         "actions": actions,
@@ -249,8 +341,9 @@ def _run_analyse(request: AnalyseRequest) -> dict:
         "agent_trace": agent_trace,
     }
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(TRACE_LOG, "w") as f:
-        json.dump(_trace_payload, f, default=str)
+    trace_path = get_trace_log_path(user_id)
+    with open(trace_path, "w") as f:
+        json.dump(trace_payload, f, default=str)
 
     return {
         "insight": insight.get("insight_title", ""),
@@ -267,12 +360,15 @@ def _run_analyse(request: AnalyseRequest) -> dict:
 
 @app.post("/analyse")
 @app.post("/analyze")
-def analyse(request: AnalyseRequest):
+def analyse(request: AnalyseRequest, authorization: Optional[str] = Header(None)):
     """POST /analyse — Agents 2→5 pipeline for Flutter InsightScreen."""
     if not request.text and not request.source_url:
         raise HTTPException(status_code=400, detail="No text or source_url provided")
     try:
-        return _run_analyse(request)
+        user_id = get_authenticated_user_id(authorization)
+        if not user_id and request.user_profile:
+            user_id = request.user_profile.get("user_id") or request.user_profile.get("uid")
+        return _run_analyse(request, user_id)
     except ValueError as e:
         # User-facing errors from URL scraping (bad URL, empty content, etc.)
         print(f"[Analyse] URL error: {e}")
@@ -284,10 +380,17 @@ def analyse(request: AnalyseRequest):
 
 @app.post("/simulate")
 @app.post("/execute")
-def simulate(request: SimulateRequest):
+def simulate(request: SimulateRequest, authorization: Optional[str] = Header(None)):
     """POST /simulate — Agent 6 real execution for Flutter BeforeAfterScreen."""
+    user_id = get_authenticated_user_id(authorization)
+    if not user_id:
+        user_id = request.user_id
+    if not user_id and request.user_profile:
+        user_id = request.user_profile.get("user_id") or request.user_profile.get("uid")
+        
+    trace_path = get_trace_log_path(user_id)
     try:
-        with open(TRACE_LOG) as f:
+        with open(trace_path) as f:
             trace_data = json.load(f)
     except Exception:
         trace_data = {
@@ -320,8 +423,9 @@ def simulate(request: SimulateRequest):
         actions=ordered_actions,
         domain=trace_data.get("domain", "Finance"),
         insight=trace_data.get("insight", {}),
-        user_id=request.user_id,
+        user_id=user_id,
         notify_channels=request.notify_channels,
+        user_profile=request.user_profile,
     )
 
     agent_trace = append_simulation_trace(
@@ -330,17 +434,20 @@ def simulate(request: SimulateRequest):
     )
     trace_data["agent_trace"] = agent_trace
     trace_data["simulation"] = result
-    with open(TRACE_LOG, "w") as f:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(trace_path, "w") as f:
         json.dump(trace_data, f, default=str)
 
     return result
 
 
 @app.get("/trace")
-def get_trace():
+def get_trace(authorization: Optional[str] = Header(None)):
     """GET /trace — Flutter expects top-level List[AgentStep]."""
+    user_id = get_authenticated_user_id(authorization)
+    trace_path = get_trace_log_path(user_id)
     try:
-        with open(TRACE_LOG) as f:
+        with open(trace_path) as f:
             data = json.load(f)
         return data.get("agent_trace", [])
     except FileNotFoundError:
@@ -363,8 +470,11 @@ def get_state():
 
 
 @app.post("/state")
-def update_state(updates: dict):
+def update_state(updates: dict, authorization: Optional[str] = Header(None)):
     """POST /state — Update the business state directly (e.g. adjust FBR/SBR tax rates)."""
+    auth_uid = get_authenticated_user_id(authorization)
+    if not auth_uid:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         firestore = get_firestore_client()
         success, err = firestore.update_business_state(updates)
@@ -380,32 +490,128 @@ def update_state(updates: dict):
 
 
 @app.post("/register")
-def register_user(request: RegisterUserRequest):
-    """POST /register — Register a user for notification alerts. All fields optional for guest mode."""
+def register_user(request: RegisterUserRequest, authorization: Optional[str] = Header(None)):
+    """POST /register — Save user profile to Firestore /users/{user_id}/."""
+    auth_uid = get_authenticated_user_id(authorization)
+    if auth_uid and auth_uid != request.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: Cannot register under a different user ID")
     try:
-        registry = get_user_registry()
-        user = registry.register_user(
-            name=request.name or "Guest",
-            phone=request.phone or "",
-            email=request.email or "",
-            notify_sms=request.notify_sms,
-            notify_email=request.notify_email,
-            notify_push=request.notify_push,
-            fcm_token=request.fcm_token or "",
-            domains=request.domains,
-        )
-        is_guest = not request.phone and not request.email
-        mode = "guest" if is_guest else "registered"
-        print(f"[Register] [OK] User {mode}: {user.get('user_id')} ({request.name or 'Guest'})")
-        return {"status": mode, "user": user}
+        from datetime import datetime
+        user_id = request.user_id
+        user_data = {
+            "user_id": user_id,
+            "category": request.category,
+            "name": request.name,
+            "email": request.email,
+            "phone": request.phone,
+            "fcm_token": request.fcm_token or "",
+            "profile_data": request.profile_data or {},
+            "created_at": datetime.utcnow().isoformat(),
+            "mode": "account" if (request.email or request.phone) else "guest"
+        }
+        
+        # Save to Firestore /users/{user_id}/
+        client = get_firestore_client()
+        if client.available:
+            client.db.collection("users").document(user_id).set(user_data)
+            print(f"[Register] Saved user {user_id} to Firestore")
+        else:
+            # Save to local JSON fallback
+            registry = get_user_registry()
+            users = registry._load_from_json()
+            found = False
+            for i, u in enumerate(users):
+                if u.get("user_id") == user_id:
+                    users[i].update(user_data)
+                    found = True
+                    break
+            if not found:
+                users.append(user_data)
+            registry._write_json(users)
+            print(f"[Register] Saved user {user_id} to JSON fallback")
+            
+        return {"success": True, "user_id": user_id}
     except Exception as e:
         print(f"[Register] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/delete-account")
+def delete_account(authorization: Optional[str] = Header(None)):
+    """DELETE /delete-account — Delete Firestore profile, alerts subcollection, and remove FCM token."""
+    user_id = get_authenticated_user_id(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    try:
+        client = get_firestore_client()
+        fcm_token = None
+        
+        # 1. Fetch user to retrieve FCM token before deletion
+        if client.available:
+            doc_ref = client.db.collection("users").document(user_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                fcm_token = doc.to_dict().get("fcm_token")
+                
+                # Delete subcollection /users/{user_id}/alerts
+                alerts_ref = doc_ref.collection("alerts")
+                alert_docs = alerts_ref.stream()
+                for alert_doc in alert_docs:
+                    alert_doc.reference.delete()
+                
+                # Delete the main document
+                doc_ref.delete()
+                print(f"[Delete Account] Firestore documents deleted for {user_id}")
+            
+            # Also clean up from registry (Firestore "registered_users" + JSON fallback)
+            registry = get_user_registry()
+            if not fcm_token:
+                user_data = registry.get_user(user_id)
+                if user_data:
+                    fcm_token = user_data.get("fcm_token")
+            registry.delete_user(user_id)
+            print(f"[Delete Account] Registry clean up completed for {user_id}")
+        else:
+            # Local fallback deletion
+            registry = get_user_registry()
+            user_data = registry.get_user(user_id)
+            if user_data:
+                fcm_token = user_data.get("fcm_token")
+            registry.delete_user(user_id)
+            print(f"[Delete Account] Local JSON user deleted for {user_id}")
+            
+        # 2. Remove FCM token from notification groups
+        if fcm_token:
+            try:
+                from firebase_admin import messaging
+                messaging.unsubscribe_from_topic([fcm_token], "all")
+                print(f"[Delete Account] Unsubscribed FCM token from 'all' topic")
+            except Exception as e:
+                print(f"[Delete Account] FCM unsubscribe warning (non-fatal): {e}")
+                
+        # 3. Clean up user trace file if it exists
+        trace_path = get_trace_log_path(user_id)
+        if os.path.exists(trace_path):
+            try:
+                os.remove(trace_path)
+                print(f"[Delete Account] Purged trace file: {trace_path}")
+            except Exception as e:
+                print(f"[Delete Account] Trace purge warning (non-fatal): {e}")
+
+        return {"success": True}
+    except Exception as e:
+        print(f"[Delete Account] Deletion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @app.post("/users/fcm-token")
-def update_fcm_token(request: FcmTokenRequest):
+def update_fcm_token(request: FcmTokenRequest, authorization: Optional[str] = Header(None)):
     """POST /users/fcm-token — Update user's FCM push token."""
+    auth_uid = get_authenticated_user_id(authorization)
+    if auth_uid and auth_uid != request.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: Cannot update FCM token for another user")
     try:
         registry = get_user_registry()
         user = registry.update_user(request.user_id, {"fcm_token": request.fcm_token})
@@ -417,8 +623,11 @@ def update_fcm_token(request: FcmTokenRequest):
 
 
 @app.get("/users")
-def list_users():
-    """GET /users — List all registered users."""
+def list_users(authorization: Optional[str] = Header(None)):
+    """GET /users — List all registered users (Admin-only or disabled in live env)."""
+    client = get_firestore_client()
+    if client.available:
+        raise HTTPException(status_code=403, detail="Forbidden: Listing all users is disabled in production")
     try:
         registry = get_user_registry()
         users = registry.get_all_users()
@@ -429,8 +638,11 @@ def list_users():
 
 
 @app.get("/users/{user_id}")
-def get_user(user_id: str):
+def get_user(user_id: str, authorization: Optional[str] = Header(None)):
     """GET /users/{user_id} — Get a single user."""
+    auth_uid = get_authenticated_user_id(authorization)
+    if auth_uid and auth_uid != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own profile")
     try:
         registry = get_user_registry()
         user = registry.get_user(user_id)
@@ -445,8 +657,11 @@ def get_user(user_id: str):
 
 
 @app.put("/users/{user_id}")
-def update_user(user_id: str, request: UpdateUserRequest):
+def update_user(user_id: str, request: UpdateUserRequest, authorization: Optional[str] = Header(None)):
     """PUT /users/{user_id} — Update user notification preferences."""
+    auth_uid = get_authenticated_user_id(authorization)
+    if auth_uid and auth_uid != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only update your own profile")
     try:
         registry = get_user_registry()
         updates = request.model_dump(exclude_none=True)
@@ -463,8 +678,11 @@ def update_user(user_id: str, request: UpdateUserRequest):
 
 
 @app.delete("/users/{user_id}")
-def delete_user(user_id: str):
+def delete_user(user_id: str, authorization: Optional[str] = Header(None)):
     """DELETE /users/{user_id} — Unregister a user."""
+    auth_uid = get_authenticated_user_id(authorization)
+    if auth_uid and auth_uid != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only delete your own profile")
     try:
         registry = get_user_registry()
         deleted = registry.delete_user(user_id)
@@ -483,8 +701,11 @@ def delete_user(user_id: str):
 
 
 @app.get("/notifications")
-def get_notifications(limit: int = 50):
-    """GET /notifications — Get notification history log."""
+def get_notifications(limit: int = 50, authorization: Optional[str] = Header(None)):
+    """GET /notifications — Get notification history log (Admin-only or disabled in live env)."""
+    client = get_firestore_client()
+    if client.available:
+        raise HTTPException(status_code=403, detail="Forbidden: Listing notification history is disabled in production")
     try:
         svc = get_notification_service()
         history = svc.get_notification_history(limit=limit)

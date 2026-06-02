@@ -3,6 +3,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:convert';
+import 'package:share_plus/share_plus.dart';
 import '../../core/models/tadbeer_models.dart';
 import '../../core/services/api_service.dart';
 import '../../shared/theme/app_theme.dart';
@@ -162,11 +164,18 @@ class _AgentTraceScreenState extends State<AgentTraceScreen> {
   }
 
   void _exportTrace() {
-    // TODO: share_plus export of JSON trace
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Trace JSON exported for judges'),
-        backgroundColor: TColors.teal,
-        duration: Duration(seconds: 2)));
+    try {
+      final list = _steps.map((s) => s.toJson()).toList();
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(list);
+      Share.share(
+        jsonStr,
+        subject: 'TadbeerAI Agent Reasoning Trace',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to export trace: $e'),
+          backgroundColor: TColors.red));
+    }
   }
 }
 

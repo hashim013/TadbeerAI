@@ -11,15 +11,24 @@ class HiveService {
   static Future<void> initHive() async {
     await Hive.initFlutter();
     await Hive.openBox<dynamic>(_settingsBox);
+    await Hive.openBox<dynamic>('settings_box');
+    await Hive.openBox<dynamic>('user_profile_box');
   }
 
   /// Get the theme mode from local storage
   static Future<ThemeMode> getThemeMode() async {
     try {
-      final box = Hive.box<dynamic>(_settingsBox);
-      final dynamic val = box.get(_themeKey);
-      final themeModeString = val?.toString() ?? 'light';
-      return themeModeString == 'dark' ? ThemeMode.dark : ThemeMode.light;
+      final box = Hive.box<dynamic>('settings_box');
+      final dynamic val = box.get('theme');
+      if (val != null) {
+        final themeStr = val.toString();
+        if (themeStr == 'dark') return ThemeMode.dark;
+        if (themeStr == 'system') return ThemeMode.system;
+        return ThemeMode.light;
+      }
+      final legacyBox = Hive.box<dynamic>(_settingsBox);
+      final dynamic legacyVal = legacyBox.get(_themeKey);
+      return legacyVal?.toString() == 'dark' ? ThemeMode.dark : ThemeMode.light;
     } catch (e) {
       debugPrint('Error reading theme mode: $e');
       return ThemeMode.light;
@@ -29,8 +38,14 @@ class HiveService {
   /// Save the theme mode to local storage
   static Future<void> saveThemeMode(ThemeMode themeMode) async {
     try {
-      final box = Hive.box<dynamic>(_settingsBox);
-      await box.put(_themeKey, themeMode == ThemeMode.dark ? 'dark' : 'light');
+      final box = Hive.box<dynamic>('settings_box');
+      String themeStr = 'light';
+      if (themeMode == ThemeMode.dark) themeStr = 'dark';
+      if (themeMode == ThemeMode.system) themeStr = 'system';
+      await box.put('theme', themeStr);
+
+      final legacyBox = Hive.box<dynamic>(_settingsBox);
+      await legacyBox.put(_themeKey, themeMode == ThemeMode.dark ? 'dark' : 'light');
     } catch (e) {
       debugPrint('Error saving theme mode: $e');
     }
@@ -39,9 +54,13 @@ class HiveService {
   /// Get the app language from local storage
   static Future<String> getLanguage() async {
     try {
-      final box = Hive.box<dynamic>(_settingsBox);
-      final dynamic val = box.get(_languageKey);
-      return val?.toString() ?? 'en';
+      final box = Hive.box<dynamic>('settings_box');
+      final dynamic val = box.get('language');
+      if (val != null) return val.toString();
+
+      final legacyBox = Hive.box<dynamic>(_settingsBox);
+      final dynamic legacyVal = legacyBox.get(_languageKey);
+      return legacyVal?.toString() ?? 'en';
     } catch (e) {
       debugPrint('Error reading language: $e');
       return 'en';
@@ -51,8 +70,11 @@ class HiveService {
   /// Save the app language to local storage
   static Future<void> saveLanguage(String language) async {
     try {
-      final box = Hive.box<dynamic>(_settingsBox);
-      await box.put(_languageKey, language);
+      final box = Hive.box<dynamic>('settings_box');
+      await box.put('language', language);
+
+      final legacyBox = Hive.box<dynamic>(_settingsBox);
+      await legacyBox.put(_languageKey, language);
     } catch (e) {
       debugPrint('Error saving language: $e');
     }

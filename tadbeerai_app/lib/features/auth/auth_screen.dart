@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:tadbeerai/core/navigation/app_navigator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:hive/hive.dart';
+import 'package:tadbeerai/core/services/api_service.dart';
 import 'package:tadbeerai/core/services/auth_service.dart';
+import 'package:tadbeerai/core/models/user_profile_model.dart';
+import 'package:tadbeerai/core/providers/language_provider.dart';
 import 'package:tadbeerai/shared/theme/app_theme.dart';
 import 'package:tadbeerai/shared/widgets/shared_widgets.dart';
+import '../home/home_screen.dart';
+import '../profile/category_selector_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -16,52 +23,200 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   bool _isSignUp = false;
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _handleGoogleSignIn() async {
+  String _normalizePhone(String raw) {
+    var p = raw.replaceAll(RegExp(r'[\s\-()]'), '');
+    if (p.startsWith('0')) {
+      p = '+92${p.substring(1)}';
+    } else if (p.startsWith('92') && !p.startsWith('+')) {
+      p = '+$p';
+    } else if (!p.startsWith('+')) {
+      p = '+92$p';
+    }
+    return p;
+  }
+
+  Future<void> _handleGoogleAuth() async {
     setState(() => _isLoading = true);
-    final success = await AuthService.instance.signInWithGoogle();
-    if (mounted) {
-      setState(() => _isLoading = false);
+    try {
+      final success = await AuthService.instance.signInWithGoogle();
       if (success) {
-        await navigateAfterAuth(context);
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          // Check if profile exists on backend
+          final existingProfile = await ApiService.getUserProfile(user.uid);
+          final box = Hive.box<dynamic>('user_profile_box');
+          
+          if (existingProfile != null) {
+            await box.put('user_profile', existingProfile.toJson());
+            if (existingProfile.category.isNotEmpty) {
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                );
+              }
+              return;
+            }
+          } else {
+            // Create new profile
+            String fcmToken = '';
+            try {
+              fcmToken = await FirebaseMessaging.instance.getToken() ?? '';
+            } catch (e) {
+              debugPrint('FCM Token error: $e');
+            }
+
+            final profile = UserProfileModel(
+              mode: 'account',
+              category: '',
+              name: user.displayName ?? user.email?.split('@').first ?? 'Google User',
+              email: user.email ?? '',
+              phone: user.phoneNumber ?? '',
+              profileData: {},
+              fcmToken: fcmToken,
+            );
+
+            await box.put('user_profile', profile.toJson());
+
+            // Register on Backend
+            await ApiService.registerUser(
+              userId: user.uid,
+              category: '',
+              name: profile.name,
+              email: profile.email,
+              phone: profile.phone,
+              fcmToken: fcmToken,
+              profileData: {},
+            );
+          }
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const CategorySelectorScreen()),
+            );
+          }
+        }
       } else {
-        _showError('Sign-in failed. Please try again.');
+        _showError('Google Sign-In failed or cancelled.');
       }
+    } catch (e) {
+      _showError('Google Sign-In error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleEmailAuth() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    final success = _isSignUp
-        ? await AuthService.instance.signUpWithEmail(
-            _emailCtrl.text, _passwordCtrl.text)
-        : await AuthService.instance.signInWithEmail(
-            _emailCtrl.text, _passwordCtrl.text);
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (success) {
-        await navigateAfterAuth(context);
-      } else {
-        _showError(_isSignUp
-            ? 'Registration failed. Check email and password (min 6 chars).'
-            : 'Invalid email or password.');
-      }
-    }
-  }
 
-  Future<void> _handleGuestSignIn() async {
-    await AuthService.instance.signInAsGuest();
-    if (mounted) await navigateAfterAuth(context);
+    try {
+      if (_isSignUp) {
+        // Sign Up Flow
+        final success = await AuthService.instance.signUpWithEmail(
+          _emailCtrl.text.trim(),
+          _passwordCtrl.text.trim(),
+        );
+
+        if (success) {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            String fcmToken = '';
+            try {
+              fcmToken = await FirebaseMessaging.instance.getToken() ?? '';
+            } catch (e) {
+              debugPrint('FCM Token error: $e');
+            }
+
+            final profile = UserProfileModel(
+              mode: 'account',
+              category: '',
+              name: _emailCtrl.text.split('@').first,
+              email: _emailCtrl.text.trim(),
+              phone: _normalizePhone(_phoneCtrl.text.trim()),
+              profileData: {},
+              fcmToken: fcmToken,
+            );
+
+            // Save locally
+            final box = Hive.box<dynamic>('user_profile_box');
+            await box.put('user_profile', profile.toJson());
+
+            // Register on Backend
+            await ApiService.registerUser(
+              userId: user.uid,
+              category: '',
+              name: profile.name,
+              email: profile.email,
+              phone: profile.phone,
+              fcmToken: fcmToken,
+              profileData: {},
+            );
+
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const CategorySelectorScreen()),
+              );
+            }
+          }
+        } else {
+          _showError('Registration failed. Email might be in use.');
+        }
+      } else {
+        // Sign In Flow
+        final success = await AuthService.instance.signInWithEmail(
+          _emailCtrl.text.trim(),
+          _passwordCtrl.text.trim(),
+        );
+
+        if (success) {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            final profile = await ApiService.getUserProfile(user.uid);
+            if (profile != null) {
+              final box = Hive.box<dynamic>('user_profile_box');
+              await box.put('user_profile', profile.toJson());
+              
+              if (profile.category.isNotEmpty) {
+                if (mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  );
+                }
+                return;
+              }
+            }
+          }
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const CategorySelectorScreen()),
+            );
+          }
+        } else {
+          _showError('Sign-in failed. Please verify credentials.');
+        }
+      }
+    } catch (e) {
+      _showError('An error occurred: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _showError(String msg) {
@@ -75,7 +230,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? TColors.darkBg : TColors.bg,
+      backgroundColor: context.tBg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -84,131 +239,111 @@ class _AuthScreenState extends State<AuthScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: ThemeToggleButton(),
-                ),
                 const SizedBox(height: 24),
                 Center(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 96,
-                      height: 96,
+                      width: 80,
+                      height: 80,
                       fit: BoxFit.cover,
                     ),
                   ),
                 )
                 .animate()
                 .scale(delay: 100.ms, curve: Curves.easeOutBack),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'TadbeerAI',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
                     color: isDark ? Colors.white : TColors.textPrimary,
                   ),
-                ).animate().fadeIn(delay: 200.ms),
-                const SizedBox(height: 8),
+                ),
                 Text(
-                  'Content to Action Intelligence',
+                  _isSignUp ? 'Create your advisor account'.tr(context) : 'Sign in to your account'.tr(context),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDark
-                        ? TColors.darkTextSecondary
-                        : TColors.textSecondary,
+                    color: context.tTextSecondary,
                   ),
-                ).animate().fadeIn(delay: 300.ms),
-                const SizedBox(height: 36),
+                ),
+                const SizedBox(height: 32),
                 TTextField(
                   controller: _emailCtrl,
-                  label: 'Email',
+                  label: 'Email'.tr(context),
                   icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) =>
-                      v == null || !v.contains('@') ? 'Valid email required' : null,
+                      v == null || !v.contains('@') ? 'Valid email required'.tr(context) : null,
                 ),
+                if (_isSignUp) ...[
+                  const SizedBox(height: 12),
+                  TTextField(
+                    controller: _phoneCtrl,
+                    label: 'Phone number (e.g. +923001234567)'.tr(context),
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Phone number required'.tr(context);
+                      final norm = _normalizePhone(v.trim());
+                      if (!RegExp(r'^\+923\d{9}$').hasMatch(norm)) {
+                        return 'Enter valid Pakistan phone number (+923xxxxxxxxx)'.tr(context);
+                      }
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 12),
                 TTextField(
                   controller: _passwordCtrl,
-                  label: 'Password',
+                  label: 'Password'.tr(context),
                   icon: Icons.lock_outline,
                   obscureText: true,
                   validator: (v) => v == null || v.length < 6
-                      ? 'Password must be at least 6 characters'
+                      ? 'Password must be at least 6 characters'.tr(context)
                       : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 TPrimaryButton(
-                  label: _isSignUp ? 'Create account' : 'Sign in with email',
-                  icon: Icons.login_rounded,
+                  label: _isSignUp ? 'Create account'.tr(context) : 'Sign in'.tr(context),
+                  icon: _isSignUp ? Icons.person_add_rounded : Icons.login_rounded,
                   isLoading: _isLoading,
                   onTap: _handleEmailAuth,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.login_rounded, size: 18, color: TColors.primary),
+                  label: Text('Sign in with Google'.tr(context)),
+                  onPressed: _isLoading ? null : _handleGoogleAuth,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: const BorderSide(color: TColors.primary, width: 1),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 TextButton(
                   onPressed: _isLoading
                       ? null
                       : () => setState(() => _isSignUp = !_isSignUp),
                   child: Text(
                     _isSignUp
-                        ? 'Already have an account? Sign in'
-                        : 'New here? Create an account',
+                        ? 'Already have an account? Sign in'.tr(context)
+                        : 'New here? Create an account'.tr(context),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: context.tBorder)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('or', style: context.tCaption),
-                    ),
-                    Expanded(child: Divider(color: context.tBorder)),
-                  ],
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? Colors.white : Colors.black,
-                    foregroundColor: isDark ? Colors.black : Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.g_mobiledata_rounded, size: 28),
-                      const SizedBox(width: 8),
-                      const Text('Continue with Google',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _isLoading ? null : _handleGuestSignIn,
-                  child: const Text('Continue as Guest'),
-                ),
-                const SizedBox(height: 24),
                 Text(
-                  'Registered users receive execution alerts via SMS, email, and push.',
+                  'Account mode enables automated email, SMS, and push notification alerts from TadbeerAI.'.tr(context),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark
-                        ? TColors.darkTextSecondary
-                        : TColors.textTertiary,
-                  ),
+                  style: context.tCaption,
                 ),
               ],
             ),

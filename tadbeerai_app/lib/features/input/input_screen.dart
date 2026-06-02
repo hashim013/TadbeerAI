@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/shared_widgets.dart';
+import '../../core/providers/language_provider.dart';
 import '../insight/insight_screen.dart';
 
 class InputScreen extends StatefulWidget {
@@ -93,10 +94,10 @@ class _InputScreenState extends State<InputScreen>
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         dividerColor: Colors.transparent,
         splashFactory: NoSplash.splashFactory,
-        tabs: const [
-          Tab(icon: Icon(Icons.text_fields_rounded, size: 16), text: 'Text'),
-          Tab(icon: Icon(Icons.picture_as_pdf_rounded, size: 16), text: 'PDF'),
-          Tab(icon: Icon(Icons.link_rounded, size: 16), text: 'URL'),
+        tabs: [
+          Tab(icon: const Icon(Icons.text_fields_rounded, size: 16), text: 'Text'.tr(context)),
+          Tab(icon: const Icon(Icons.picture_as_pdf_rounded, size: 16), text: 'PDF'.tr(context)),
+          Tab(icon: const Icon(Icons.link_rounded, size: 16), text: 'URL'.tr(context)),
         ],
       ),
     );
@@ -112,7 +113,7 @@ class _InputScreenState extends State<InputScreen>
           // Language selector
           _buildLanguageSelector(),
           SizedBox(height: 12),
-          const TSectionLabel(label: 'Paste news or report'),
+          TSectionLabel(label: 'Paste news or report'.tr(context)),
           SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
@@ -125,33 +126,33 @@ class _InputScreenState extends State<InputScreen>
               maxLines: 8,
               style: TextStyle(
                   fontSize: 13, color: context.tTextPrimary, height: 1.6),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText:
-                    'Paste news article, report, or policy update here...\n\nAlso supports: اردو میں خبر یہاں لکھیں یا Roman Urdu mein likh saktay hain',
+                    'Paste news article, report, or policy update here...\n\nAlso supports: اردو میں خبر یہاں لکھیں یا Roman Urdu mein likh saktay hain'.tr(context),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.all(14),
+                contentPadding: const EdgeInsets.all(14),
                 filled: false,
               ),
             ),
           ),
           SizedBox(height: 14),
           // Sample scenarios
-          const TSectionLabel(label: 'Try a sample'),
+          TSectionLabel(label: 'Try a sample'.tr(context)),
           SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _SampleChip(
-                  label: '⛽ Petrol hike', onTap: () => _fillSample('petrol')),
+                  label: '⛽ Petrol hike'.tr(context), onTap: () => _fillSample('petrol')),
               _SampleChip(
-                  label: '💸 Rupee drop', onTap: () => _fillSample('rupee')),
+                  label: '💸 Rupee drop'.tr(context), onTap: () => _fillSample('rupee')),
               _SampleChip(
-                  label: '📉 Sales decline', onTap: () => _fillSample('sales')),
+                  label: '📉 Sales decline'.tr(context), onTap: () => _fillSample('sales')),
               _SampleChip(
-                  label: '🚢 Port delay', onTap: () => _fillSample('port')),
+                  label: '🚢 Port delay'.tr(context), onTap: () => _fillSample('port')),
             ],
           ).animate().fadeIn(delay: 200.ms),
         ],
@@ -165,7 +166,7 @@ class _InputScreenState extends State<InputScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const TSectionLabel(label: 'Upload report PDF'),
+          TSectionLabel(label: 'Upload report PDF'.tr(context)),
           SizedBox(height: 10),
           GestureDetector(
             onTap: _pickPdf,
@@ -198,7 +199,7 @@ class _InputScreenState extends State<InputScreen>
                   ),
                   SizedBox(height: 12),
                   Text(
-                    _pdfFileName ?? 'Tap to upload PDF',
+                    _pdfFileName ?? 'Tap to upload PDF'.tr(context),
                     style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -209,8 +210,8 @@ class _InputScreenState extends State<InputScreen>
                   SizedBox(height: 4),
                   Text(
                     _pdfFileName != null
-                        ? 'Tap to change file'
-                        : 'Max 10 MB · Sales, policy, logistics reports',
+                        ? 'Tap to change file'.tr(context)
+                        : 'Max 10 MB · Sales, policy, logistics reports'.tr(context),
                     style: context.tCaption,
                   ),
                 ],
@@ -218,10 +219,10 @@ class _InputScreenState extends State<InputScreen>
             ),
           ).animate().fadeIn(),
           SizedBox(height: 16),
-          const _InfoBox(
+          _InfoBox(
             icon: Icons.info_outline_rounded,
             text:
-                'Supported: Sales reports, policy documents, logistics summaries, financial statements',
+                'Supported: Sales reports, policy documents, logistics summaries, financial statements'.tr(context),
           ),
         ],
       ),
@@ -235,7 +236,7 @@ class _InputScreenState extends State<InputScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TSectionLabel(label: 'Paste a specific article URL'),
+          TSectionLabel(label: 'Paste a specific article URL'.tr(context)),
           SizedBox(height: 8),
           TextField(
             controller: _urlController,
@@ -249,15 +250,15 @@ class _InputScreenState extends State<InputScreen>
                 icon: Icon(Icons.content_paste_rounded,
                     size: 18, color: TColors.primary),
                 onPressed: _pasteFromClipboard,
-                tooltip: 'Paste from clipboard',
+                tooltip: 'Paste from clipboard'.tr(context),
               ),
             ),
           ),
           SizedBox(height: 14),
-          const TSectionLabel(label: 'Browse news sources'),
+          TSectionLabel(label: 'Browse news sources'.tr(context)),
           SizedBox(height: 4),
           Text(
-            'Open a source, find an article, then copy & paste its URL above',
+            'Open a source, find an article, then copy & paste its URL above'.tr(context),
             style: TextStyle(
                 fontSize: 11, color: context.tTextTertiary, height: 1.4),
           ),
@@ -284,11 +285,11 @@ class _InputScreenState extends State<InputScreen>
             ],
           ),
           SizedBox(height: 16),
-          const _InfoBox(
+          _InfoBox(
             icon: Icons.info_outline_rounded,
             text:
                 'Paste the full URL of a specific news article — not a homepage. '
-                'TadbeerAI will scrape and analyse the article content automatically.',
+                'TadbeerAI will scrape and analyse the article content automatically.'.tr(context),
           ),
         ],
       ),
@@ -299,22 +300,22 @@ class _InputScreenState extends State<InputScreen>
   Widget _buildLanguageSelector() {
     return Row(
       children: [
-        const TSectionLabel(label: 'Language'),
+        TSectionLabel(label: 'Language'.tr(context)),
         SizedBox(width: 12),
         _LangChip(
-            label: 'English',
+            label: 'English'.tr(context),
             code: 'en',
             selected: _language == 'en',
             onTap: () => setState(() => _language = 'en')),
         SizedBox(width: 6),
         _LangChip(
-            label: 'اردو',
+            label: 'Urdu (Script)'.tr(context),
             code: 'ur',
             selected: _language == 'ur',
             onTap: () => setState(() => _language = 'ur')),
         SizedBox(width: 6),
         _LangChip(
-            label: 'Roman Urdu',
+            label: 'Urdu (Roman)'.tr(context),
             code: 'roman_ur',
             selected: _language == 'roman_ur',
             onTap: () => setState(() => _language = 'roman_ur')),
@@ -331,7 +332,7 @@ class _InputScreenState extends State<InputScreen>
         border: Border(top: BorderSide(color: context.tBorder, width: 0.5)),
       ),
       child: TPrimaryButton(
-        label: 'Analyse with TadbeerAI',
+        label: 'Analyse with TadbeerAI'.tr(context),
         icon: Icons.auto_awesome_rounded,
         isLoading: _analysing,
         onTap: _onAnalyse,
@@ -392,21 +393,21 @@ class _InputScreenState extends State<InputScreen>
     String? url;
 
     if (tab == 0 && _textController.text.trim().isEmpty) {
-      _showError('Please paste some text first');
+      _showError('Please paste some text first'.tr(context));
       return;
     }
     if (tab == 1 && _pdfFileName == null) {
-      _showError('Please upload a PDF first');
+      _showError('Please upload a PDF first'.tr(context));
       return;
     }
     if (tab == 2 && _urlController.text.trim().isEmpty) {
-      _showError('Please enter a URL first');
+      _showError('Please enter a URL first'.tr(context));
       return;
     }
     if (tab == 2) {
       final rawUrl = _urlController.text.trim();
       if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
-        _showError('URL must start with http:// or https://');
+        _showError('URL must start with http:// or https://'.tr(context));
         return;
       }
       // Warn if it looks like a bare homepage (no path after domain)
@@ -415,7 +416,7 @@ class _InputScreenState extends State<InputScreen>
           (uri.path.isEmpty || uri.path == '/') &&
           uri.query.isEmpty) {
         _showError(
-            'This looks like a homepage, not an article. Please paste a specific article URL.');
+            'This looks like a homepage, not an article. Please paste a specific article URL.'.tr(context));
         return;
       }
     }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/models/execution_notification.dart';
 import '../../core/models/tadbeer_models.dart';
+import '../../core/providers/language_provider.dart';
 import '../../core/providers/notification_provider.dart';
 import '../../core/services/alert_store.dart';
 import '../../core/services/api_service.dart';
@@ -59,7 +60,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           UrgencyLevel.medium: 1,
           UrgencyLevel.low: 2,
         };
-        final cmp = urgencyOrder[a.urgency]!.compareTo(urgencyOrder[b.urgency]!);
+        final cmp =
+            urgencyOrder[a.urgency]!.compareTo(urgencyOrder[b.urgency]!);
         if (cmp != 0) return cmp;
         return b.publishedAt.compareTo(a.publishedAt);
       });
@@ -108,7 +110,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Market'),
+                      Text('Market'.tr(context)),
                       if (_marketUnread > 0) ...[
                         const SizedBox(width: 6),
                         _CountBadge(count: _marketUnread),
@@ -120,7 +122,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Executions'),
+                      Text('Executions'.tr(context)),
                       if (AlertStore.instance.executionUnreadCount > 0) ...[
                         const SizedBox(width: 6),
                         _CountBadge(
@@ -135,9 +137,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _loading
-                      ? _buildSkeleton()
-                      : _buildMarketList(),
+                  _loading ? _buildSkeleton() : _buildMarketList(),
                   _buildExecutionsList(executions),
                 ],
               ),
@@ -157,7 +157,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           const Icon(Icons.notifications_rounded,
               size: 22, color: TColors.primary),
           const SizedBox(width: 8),
-          Text('Alerts', style: context.tHeading3),
+          Text('Alerts'.tr(context), style: context.tHeading3),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -182,8 +182,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     if (_alerts.isEmpty) {
       return TEmptyState(
         icon: Icons.notifications_off_rounded,
-        title: 'No market alerts',
-        subtitle: 'No high-urgency feed items right now.',
+        title: 'No market alerts'.tr(context),
+        subtitle: 'No high-urgency feed items right now.'.tr(context),
       );
     }
 
@@ -196,7 +196,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _markAllMarketRead,
-                child: const Text('Mark all read'),
+                child: Text('Mark all read'.tr(context)),
               ),
             ),
           ),
@@ -242,9 +242,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     if (executions.isEmpty) {
       return TEmptyState(
         icon: Icons.play_circle_outline_rounded,
-        title: 'No execution alerts',
+        title: 'No execution alerts'.tr(context),
         subtitle:
-            'When you execute an action, results appear here and as push notifications.',
+            'When you execute an action, results appear here and as push notifications.'
+                .tr(context),
       );
     }
 
@@ -257,7 +258,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _markAllExecutionsRead,
-                child: const Text('Mark all read'),
+                child: Text('Mark all read'.tr(context)),
               ),
             ),
           ),
@@ -332,7 +333,9 @@ class _MarketAlertCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: context.tCard.copyWith(
-          color: isRead ? context.tSurface : TColors.amberLight.withValues(alpha: 0.3),
+          color: isRead
+              ? context.tSurface
+              : TColors.amberLight.withValues(alpha: 0.3),
         ),
         child: Row(
           children: [
@@ -387,9 +390,8 @@ class _ExecutionAlertCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: context.tCard.copyWith(
           border: Border.all(
-            color: n.read
-                ? context.tBorder
-                : TColors.teal.withValues(alpha: 0.4),
+            color:
+                n.read ? context.tBorder : TColors.teal.withValues(alpha: 0.4),
             width: n.read ? 0.5 : 1,
           ),
         ),
@@ -419,8 +421,8 @@ class _ExecutionAlertCard extends StatelessWidget {
               ),
             ),
             if (!n.read)
-              const TBadge(
-                label: 'New',
+              TBadge(
+                label: 'New'.tr(context),
                 color: TColors.teal,
                 bg: TColors.tealLight,
               ),

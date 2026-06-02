@@ -111,39 +111,12 @@ class NotificationService:
 
     def send_sms(self, to_phone: str, message: str, action_id: str = "") -> Tuple[bool, str]:
         """
-        Send SMS via Twilio.
-
-        Args:
-            to_phone: Recipient phone number (e.g., '+923001234567')
-            message: Message content
-            action_id: Related action ID for audit trail
-
-        Returns:
-            (success: bool, message_id: str)
+        Send SMS via Twilio. (Currently disabled/commented in backend)
         """
-        if not self.twilio_client:
-            logger.warning(f"[Notifications] SMS skipped (Twilio not available): {to_phone}")
-            self._log_notification(to_phone, "sms", message, action_id, "skipped")
-            return False, "skipped"
+        logger.info(f"[Notifications] SMS sending is currently disabled in backend. (Target: {to_phone}, Message: {message})")
+        self._log_notification(to_phone, "sms", message, action_id, "disabled")
+        return False, "disabled"
 
-        try:
-            from_phone = os.getenv("TWILIO_FROM_NUMBER", "+1234567890")
-
-            msg = self.twilio_client.messages.create(
-                body=message,
-                from_=from_phone,
-                to=to_phone
-            )
-
-            logger.info(f"[Notifications] ✅ SMS sent to {to_phone}: {msg.sid}")
-            self._log_notification(to_phone, "sms", message, action_id, "sent")
-            return True, msg.sid
-
-        except Exception as e:
-            error_msg = f"Failed to send SMS to {to_phone}: {str(e)}"
-            logger.error(f"[Notifications] ❌ {error_msg}")
-            self._log_notification(to_phone, "sms", message, action_id, "failed")
-            return False, error_msg
 
     def send_email(
         self,
@@ -153,7 +126,7 @@ class NotificationService:
         action_id: str = ""
     ) -> Tuple[bool, str]:
         """
-        Send email via SendGrid.
+        Send email via Gmail SMTP or Resend.
 
         Args:
             to_email: Recipient email address
@@ -164,27 +137,13 @@ class NotificationService:
         Returns:
             (success: bool, message_id: str)
         """
-        if not self.sendgrid_client:
-            logger.warning(f"[Notifications] Email skipped (SendGrid not available): {to_email}")
-            self._log_notification(to_email, "email", f"{subject}: {body[:100]}", action_id, "skipped")
-            return False, "skipped"
-
         try:
-            from_email = os.getenv("SENDGRID_FROM_EMAIL", "noreply@tadbeerai.com")
-
-            message = Mail(
-                from_email=from_email,
-                to_emails=to_email,
-                subject=subject,
-                html_content=self._format_html_email(body)
-            )
-
-            response = self.sendgrid_client.send(message)
-
-            logger.info(f"[Notifications] ✅ Email sent to {to_email}: {response.status_code}")
+            # Import dynamically to avoid circular import issues
+            from gmail_smtp import send_email_alert
+            send_email_alert(to_email, subject, body)
+            logger.info(f"[Notifications] ✅ Email sent to {to_email}")
             self._log_notification(to_email, "email", f"{subject}: {body[:100]}", action_id, "sent")
-            return True, str(response.status_code)
-
+            return True, "sent"
         except Exception as e:
             error_msg = f"Failed to send email to {to_email}: {str(e)}"
             logger.error(f"[Notifications] ❌ {error_msg}")
@@ -243,12 +202,11 @@ class NotificationService:
         action_id: str,
         diffs: list[dict] | None = None,
         notify_channels: list[str] | None = None,
+        user_id: str | None = None,
     ) -> Tuple[int, int, int, int, str, dict]:
         """
-        Send SMS, email, and push notifications to ALL registered users for an executed action.
-
-        Fetches users from UserRegistry, filters by domain preference,
-        and fans out personalized alerts to each user.
+        Send SMS, email, and push notifications to registered users for an executed action.
+        If user_id is provided, only that user is notified. Otherwise, all subscribed users are notified.
 
         Args:
             action_key: Action template key (e.g., 'energy_increase_delivery_fee')
@@ -258,6 +216,7 @@ class NotificationService:
             action_id: Unique action ID
             diffs: List of before/after state change dicts
             notify_channels: Filter channels requested (e.g., ['sms', 'email', 'push'])
+            user_id: Optional ID of a single user to notify
 
         Returns:
             (users_reached, sms_sent, emails_sent, push_sent, summary_message, delivery_report)
@@ -266,11 +225,15 @@ class NotificationService:
             timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
             registry = get_user_registry()
 
-            # Get users subscribed to this domain
-            users = registry.get_users_for_domain(domain)
+            if user_id:
+                single_user = registry.get_user(user_id)
+                users = [single_user] if single_user else []
+            else:
+                # Get users subscribed to this domain
+                users = registry.get_users_for_domain(domain)
 
             if not users:
-                msg = "Guest mode — execution completed, no notification recipients"
+                msg = "No notification recipients (user not found or guest mode)"
                 logger.info(f"[Notifications] ℹ️ {msg}")
                 empty_report = {
                     "sms_recipients": 0,

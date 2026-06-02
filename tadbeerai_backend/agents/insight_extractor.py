@@ -16,13 +16,38 @@ CRITICAL: The insight must be strictly derived from the facts and figures of the
 """
 
 
-def extract_insight(ingested: dict, domain: str) -> dict:
+def extract_insight(ingested: dict, domain: str, user_profile: dict = None, language: str = "en") -> dict:
     """
     Agent 3: Insight Extractor
     Uses Gemini/Groq to extract specific business signal exactly from news content.
     """
     text = ingested["normalized_text"][:2000]
     entities = ingested["entities"]
+
+    lang_rule = ""
+    if language == "ur":
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'insight_title', 'insight_detail', and 'confidence_reason' in Urdu script (Urdu language)."
+    elif language == "roman_ur":
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'insight_title', 'insight_detail', and 'confidence_reason' in Roman Urdu (Urdu written in Latin/English alphabets, e.g. 'petrol ki qeemat Rs.15 barh gayi hai')."
+    else:
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'insight_title', 'insight_detail', and 'confidence_reason' in English."
+
+    profile_info = ""
+    if user_profile:
+        category = user_profile.get("category", "")
+        city = user_profile.get("city", "")
+        profile_info = f"\nUser Category/Persona: {category}\nUser Location: {city}\n"
+        if category == "employee":
+            profile_info += "Analyze how this news specifically affects employees, salaried workers, or jobs in Pakistan. Emphasize impacts on salary, jobs, commuting, or daily costs.\n"
+        elif category == "shop":
+            profile_info += "Analyze how this news specifically affects retail shop owners, small merchants, or storefronts in Pakistan. Emphasize impacts on retail prices, stock inventory, local customer traffic, or utility costs.\n"
+        elif category == "business":
+            profile_info += "Analyze how this news specifically affects business owners, manufacturers, SMEs, or industry corporations. Emphasize impacts on production costs, imports/exports, taxes, or B2B sales.\n"
+        elif category == "student":
+            profile_info += "Analyze how this news specifically affects students, cost of education, student transport, or daily personal student budgets in Pakistan.\n"
+        profile_info += "Tailor the 'insight_detail' and emphasis of 'insight_title' to highlight factors relevant to this user category.\n"
+    else:
+        profile_info = "\nAnalyze news and implications in Pakistan.\n"
 
     prompt = f"""
 Analyze this Pakistan business news and extract a specific, actionable insight that is EXACTLY and DIRECTLY related to this news.
@@ -31,6 +56,10 @@ DOMAIN: {domain}
 KEY ENTITIES FOUND: {', '.join(entities)}
 NEWS TEXT:
 {text}
+
+{profile_info}
+
+{lang_rule}
 
 Respond with JSON in exactly this format:
 {{

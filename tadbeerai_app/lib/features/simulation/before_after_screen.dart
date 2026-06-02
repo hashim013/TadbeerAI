@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/models/tadbeer_models.dart';
+import '../../core/providers/language_provider.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/shared_widgets.dart';
 import '../trace/agent_trace_screen.dart';
@@ -47,18 +48,18 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
     return Scaffold(
       backgroundColor: context.tBg,
       appBar: TTopBar(
-        title: 'Simulation result',
+        title: 'Simulation result'.tr(context),
         subtitle: widget.notifiedCount != null
-            ? 'Alerts sent to ${widget.notifiedCount} recipients'
-            : 'Antigravity Agent 6 · executed',
-        actions: const [
+            ? '${'Alerts sent to'.tr(context)} ${widget.notifiedCount} ${'recipients'.tr(context)}'
+            : 'Antigravity Agent 6 · executed'.tr(context),
+        actions: [
           TBadge(
-            label: 'Executed',
+            label: 'Executed'.tr(context),
             color: TColors.teal,
             bg: TColors.tealLight,
             icon: Icons.check_circle_rounded,
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
@@ -100,7 +101,8 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Execution alerts sent via SMS, email, and push to registered users.',
+              'Execution alerts sent via SMS, email, and push to registered users.'
+                  .tr(context),
               style: TextStyle(
                 fontSize: 12,
                 color: TColors.tealDark,
@@ -164,10 +166,10 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         dividerColor: Colors.transparent,
         splashFactory: NoSplash.splashFactory,
-        tabs: const [
-          Tab(text: 'State changes'),
-          Tab(text: 'Delivery'),
-          Tab(text: 'Exec log'),
+        tabs: [
+          Tab(text: 'State changes'.tr(context)),
+          Tab(text: 'Delivery'.tr(context)),
+          Tab(text: 'Exec log'.tr(context)),
         ],
       ),
     );
@@ -180,11 +182,11 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TSectionLabel(label: 'State diff'),
+          TSectionLabel(label: 'State diff'.tr(context)),
           SizedBox(height: 6),
           _buildDiffTable().animate().fadeIn(delay: 100.ms),
           SizedBox(height: 12),
-          const TSectionLabel(label: 'Simulated SMS draft'),
+          TSectionLabel(label: 'Simulated SMS draft'.tr(context)),
           SizedBox(height: 6),
           _buildSmsDraft().animate().fadeIn(delay: 200.ms),
           SizedBox(height: 12),
@@ -217,18 +219,19 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: TColors.amberLight,
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12), topRight: Radius.circular(12)),
               border: Border(
                   bottom: BorderSide(color: context.tBorder, width: 0.5)),
             ),
             child: Row(
               children: [
-                Icon(Icons.sms_rounded, size: 14, color: TColors.amberDark),
-                SizedBox(width: 8),
+                const Icon(Icons.sms_rounded,
+                    size: 14, color: TColors.amberDark),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'To: ${_formatNum(widget.result.usersReached)} customers',
+                    '${'To:'.tr(context)} ${_formatNum(widget.result.usersReached)} ${'customers'.tr(context)}',
                     style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -239,12 +242,12 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
                   onTap: () {
                     Clipboard.setData(
                         ClipboardData(text: widget.result.smsDraft));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('SMS draft copied'),
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('SMS draft copied'.tr(context)),
                         backgroundColor: TColors.teal,
-                        duration: Duration(seconds: 2)));
+                        duration: const Duration(seconds: 2)));
                   },
-                  child: Icon(Icons.copy_rounded,
+                  child: const Icon(Icons.copy_rounded,
                       size: 14, color: TColors.amberDark),
                 ),
               ],
@@ -275,13 +278,13 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle_rounded, size: 20, color: TColors.teal),
-          SizedBox(width: 10),
+          const Icon(Icons.check_circle_rounded, size: 20, color: TColors.teal),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Complete · ${widget.result.stateChanges} state changes · '
-              '${_formatNum(widget.result.usersReached)} users reached · '
-              '${widget.result.execTimeSeconds}s · 0 errors',
+              '${'Complete'.tr(context)} · ${widget.result.stateChanges} ${'state changes'.tr(context)} · '
+              '${_formatNum(widget.result.usersReached)} ${'users reached'.tr(context)} · '
+              '${widget.result.execTimeSeconds}${'s'.tr(context)} · 0 ${'errors'.tr(context)}',
               style: const TextStyle(
                   fontSize: 12,
                   color: TColors.tealDark,
@@ -299,8 +302,8 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
     if (d == null) {
       return TEmptyState(
         icon: Icons.send_rounded,
-        title: 'No delivery data',
-        subtitle: 'Delivery report will appear after execution.',
+        title: 'No delivery data'.tr(context),
+        subtitle: 'Delivery report will appear after execution.'.tr(context),
       );
     }
     return SingleChildScrollView(
@@ -308,7 +311,7 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TSectionLabel(label: 'Notification delivery'),
+          TSectionLabel(label: 'Notification delivery'.tr(context)),
           const SizedBox(height: 8),
           _DeliveryRow(
             icon: Icons.sms_rounded,
@@ -340,13 +343,13 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline_rounded,
+                const Icon(Icons.info_outline_rounded,
                     size: 16, color: TColors.primaryDark),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Status: ${d.status.toUpperCase()} · '
-                    '${d.totalRecipients} total notifications',
+                    '${'Status:'.tr(context)} ${d.status.toUpperCase()} · '
+                    '${d.totalRecipients} ${'total notifications'.tr(context)}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: TColors.primaryDark,
@@ -370,7 +373,7 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TSectionLabel(label: 'Execution log'),
+          TSectionLabel(label: 'Execution log'.tr(context)),
           SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
@@ -398,13 +401,14 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
             ),
             child: Row(
               children: [
-                Icon(Icons.auto_awesome_rounded,
+                const Icon(Icons.auto_awesome_rounded,
                     size: 16, color: TColors.primary),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Orchestrated by Google Antigravity · Full workplan + task logs available for judge review',
-                    style: TextStyle(
+                    'Orchestrated by Google Antigravity · Full workplan + task logs available for judge review'
+                        .tr(context),
+                    style: const TextStyle(
                         fontSize: 12, color: TColors.primaryDark, height: 1.5),
                   ),
                 ),
@@ -431,16 +435,16 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
             child: OutlinedButton.icon(
               onPressed: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const AgentTraceScreen())),
-              icon: Icon(Icons.account_tree_rounded, size: 15),
-              label: Text('View trace'),
+              icon: const Icon(Icons.account_tree_rounded, size: 15),
+              label: Text('View trace'.tr(context)),
             ),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: ElevatedButton.icon(
               onPressed: _exportPdf,
-              icon: Icon(Icons.download_rounded, size: 15),
-              label: Text('Export PDF'),
+              icon: const Icon(Icons.download_rounded, size: 15),
+              label: Text('Export PDF'.tr(context)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: TColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 13),
@@ -515,18 +519,20 @@ class _DeliveryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: context.tBodyMd
-                        .copyWith(fontWeight: FontWeight.w600)),
+                Text(label.tr(context),
+                    style:
+                        context.tBodyMd.copyWith(fontWeight: FontWeight.w600)),
                 Text(
-                  skipped ? 'Skipped' : 'Delivered to $count users',
+                  skipped
+                      ? 'Skipped'.tr(context)
+                      : '${'Delivered to'.tr(context)} $count ${'users'.tr(context)}',
                   style: context.tCaption,
                 ),
               ],
             ),
           ),
           TStatusChip(
-            label: skipped ? 'Off' : 'Sent',
+            label: skipped ? 'Off'.tr(context) : 'Sent'.tr(context),
             color: skipped ? TColors.textTertiary : TColors.teal,
           ),
         ],

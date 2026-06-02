@@ -3,12 +3,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
+import 'package:hive/hive.dart';
+import '../../core/providers/language_provider.dart';
+import '../../core/models/user_profile_model.dart';
 import '../../core/models/tadbeer_models.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/domain_config.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/shared_widgets.dart';
-import '../home/home_screen.dart';
 import '../insight/insight_screen.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -23,6 +26,7 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _loading = true;
   DateTime? _lastRefreshed;
   String _selectedDomain = 'All';
+  String _userCategory = '';
 
   @override
   void initState() {
@@ -30,12 +34,136 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadFeed();
   }
 
+  int _getPersonaRelevanceScore(NewsItem item, String category) {
+    final text = (item.title + ' ' + (item.previewText ?? '')).toLowerCase();
+    switch (category) {
+      case 'shop':
+        final keywords = [
+          'shop',
+          'retail',
+          'store',
+          'revenue',
+          'inventory',
+          'sales',
+          'consumer',
+          'price',
+          'delivery',
+          'tax',
+          'importer',
+          'grocer',
+          'supermarket',
+          'pos',
+          'shopkeeper'
+        ];
+        return keywords.where((kw) => text.contains(kw)).length;
+      case 'business':
+        final keywords = [
+          'business',
+          'company',
+          'corporate',
+          'turnover',
+          'employee',
+          'industry',
+          'export',
+          'import',
+          'tax',
+          'imf',
+          'sbp',
+          'policy',
+          'startup',
+          'finance',
+          'funding',
+          'audit',
+          'securities',
+          'trade'
+        ];
+        return keywords.where((kw) => text.contains(kw)).length;
+      case 'employee':
+        final keywords = [
+          'salary',
+          'employee',
+          'job',
+          'wage',
+          'income',
+          'pay',
+          'tax slab',
+          'hiring',
+          'workforce',
+          'allowance',
+          'pension',
+          'bonus',
+          'recruiting',
+          'unemployment'
+        ];
+        return keywords.where((kw) => text.contains(kw)).length;
+      case 'student':
+        final keywords = [
+          'student',
+          'university',
+          'education',
+          'stipend',
+          'school',
+          'college',
+          'scholarship',
+          'youth',
+          'career',
+          'degree',
+          'internship',
+          'tuition',
+          'hnd',
+          'graduat'
+        ];
+        return keywords.where((kw) => text.contains(kw)).length;
+      default:
+        return 0;
+    }
+  }
+
   Future<void> _loadFeed({bool forceRefresh = false}) async {
     setState(() => _loading = true);
     try {
       final items = await ApiService.getFeed(forceRefresh: forceRefresh);
+
+      // Load user category from Hive
+      String category = '';
+      try {
+        final profileBox = Hive.box<dynamic>('user_profile_box');
+        final dynamic raw = profileBox.get('user_profile');
+        if (raw != null) {
+          final profile =
+              UserProfileModel.fromJson(Map<String, dynamic>.from(raw));
+          category = profile.category;
+        }
+      } catch (e) {
+        debugPrint('Error loading user profile in feed: $e');
+      }
+
+      if (category.isNotEmpty) {
+        items.sort((a, b) {
+          final aScore = _getPersonaRelevanceScore(a, category);
+          final bScore = _getPersonaRelevanceScore(b, category);
+          if (aScore != bScore) {
+            return bScore.compareTo(aScore); // Higher relevance score first
+          }
+          // Tie-breaker: Urgency
+          final urgencyOrder = {
+            UrgencyLevel.high: 0,
+            UrgencyLevel.medium: 1,
+            UrgencyLevel.low: 2
+          };
+          final aUrgency = urgencyOrder[a.urgency] ?? 2;
+          final bUrgency = urgencyOrder[b.urgency] ?? 2;
+          if (aUrgency != bUrgency) {
+            return aUrgency.compareTo(bUrgency);
+          }
+          // Secondary tie-breaker: relevanceScore
+          return b.relevanceScore.compareTo(a.relevanceScore);
+        });
+      }
+
       setState(() {
         _items = items;
+        _userCategory = category;
         _loading = false;
         _lastRefreshed = DateTime.now();
       });
@@ -75,7 +203,7 @@ class _FeedScreenState extends State<FeedScreen> {
         children: [
           Row(
             children: [
-              Text('Proactive feed', style: context.tHeading3),
+              Text('Proactive feed'.tr(context), style: context.tHeading3),
               const Spacer(),
               GestureDetector(
                 onTap: () => _loadFeed(forceRefresh: true),
@@ -96,12 +224,12 @@ class _FeedScreenState extends State<FeedScreen> {
           SizedBox(height: 10),
           Row(
             children: [
-              Text('Business alerts',
+              Text('Business alerts'.tr(context),
                   style:
                       TextStyle(fontSize: 13, color: context.tTextSecondary)),
               const Spacer(),
               if (_lastRefreshed != null)
-                Text('Updated ${_timeAgo(_lastRefreshed!)}',
+                Text('${'Updated'.tr(context)} ${_timeAgo(_lastRefreshed!)}',
                     style: context.tCaption),
             ],
           ),
@@ -122,7 +250,9 @@ class _FeedScreenState extends State<FeedScreen> {
                       size: 14, color: TColors.red),
                   SizedBox(width: 6),
                   Text(
-                      '$newCount high-urgency alert${newCount > 1 ? 's' : ''} require action',
+                      newCount == 1
+                          ? '1 high-urgency alert requires action'.tr(context)
+                          : '$newCount ${'high-urgency alerts require action'.tr(context)}',
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -156,11 +286,11 @@ class _FeedScreenState extends State<FeedScreen> {
             child: TEmptyState(
               icon: Icons.newspaper_rounded,
               title: _items.isEmpty
-                  ? 'No alerts right now'
-                  : 'No alerts in $_selectedDomain',
+                  ? 'No alerts right now'.tr(context)
+                  : '${_selectedDomain.tr(context)} ${'No alerts in'.tr(context)}',
               subtitle: _items.isEmpty
-                  ? 'Pull to refresh or paste your own news below'
-                  : 'Pull to refresh or select another category',
+                  ? 'Pull to refresh or paste your own news below'.tr(context)
+                  : 'Pull to refresh or select another category'.tr(context),
             ),
           ),
         ],
@@ -184,6 +314,9 @@ class _FeedScreenState extends State<FeedScreen> {
             item: item,
             index: i - 1,
             onAct: () => _onAct(item),
+            userCategory: _userCategory,
+            isPersonaMatched:
+                _getPersonaRelevanceScore(item, _userCategory) > 0,
           )
               .animate()
               .fadeIn(delay: Duration(milliseconds: 50 * (i < 6 ? i : 0)))
@@ -223,7 +356,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     color: isSelected ? accentColor : context.tBorder,
                     width: 0.5),
               ),
-              child: Text(domains[i],
+              child: Text(domains[i].tr(context),
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -249,6 +382,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   // ── ACT HANDLER ───────────────────────────
   void _onAct(NewsItem item) {
+    final lang = Provider.of<LanguageProvider>(context, listen: false).language;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -257,6 +391,7 @@ class _FeedScreenState extends State<FeedScreen> {
           sourceUrl: item.url,
           sourceTitle: item.title,
           sourceLabel: '${item.source} · ${_timeAgo(item.publishedAt)}',
+          language: lang,
         ),
       ),
     );
@@ -264,9 +399,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}${'m ago'.tr(context)}';
+    if (diff.inHours < 24) return '${diff.inHours}${'h ago'.tr(context)}';
+    return '${diff.inDays}${'d ago'.tr(context)}';
   }
 }
 
@@ -275,8 +410,16 @@ class _NewsCard extends StatelessWidget {
   final NewsItem item;
   final int index;
   final VoidCallback onAct;
+  final String userCategory;
+  final bool isPersonaMatched;
 
-  _NewsCard({required this.item, required this.index, required this.onAct});
+  const _NewsCard({
+    required this.item,
+    required this.index,
+    required this.onAct,
+    required this.userCategory,
+    required this.isPersonaMatched,
+  });
 
   Color get _urgencyColor {
     switch (item.urgency) {
@@ -354,7 +497,7 @@ class _NewsCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      item.urgency == UrgencyLevel.high ? 'Act now' : 'Act',
+                      item.urgency == UrgencyLevel.high ? 'Act now'.tr(context) : 'Act'.tr(context),
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -368,31 +511,31 @@ class _NewsCard extends StatelessWidget {
             ),
             SizedBox(height: 8),
             // Meta row
-            Row(
-              children: [
-                const SizedBox(width: 18),
-                Flexible(
-                  child: _SourceChip(label: item.source),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: _DomainChip(label: item.domain),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _urgencyColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+            Padding(
+              padding: const EdgeInsets.only(left: 18, right: 18),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _SourceChip(label: item.source),
+                  _DomainChip(label: item.domain),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _urgencyColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(_urgencyLabel.tr(context),
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: _urgencyColor)),
                   ),
-                  child: Text(_urgencyLabel,
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: _urgencyColor)),
-                ),
-              ],
+                  if (isPersonaMatched) _PersonaBadge(category: userCategory),
+                ],
+              ),
             ),
             if (item.previewText != null) ...[
               SizedBox(height: 8),
@@ -458,11 +601,74 @@ class _DomainChip extends StatelessWidget {
         color: TColors.primaryLight,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(label,
+      child: Text(label.tr(context),
           style: const TextStyle(
               fontSize: 11,
               color: TColors.primaryDark,
               fontWeight: FontWeight.w500)),
+    );
+  }
+}
+
+class _PersonaBadge extends StatelessWidget {
+  final String category;
+  const _PersonaBadge({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    String label;
+    IconData icon;
+
+    switch (category) {
+      case 'shop':
+        color = TColors.primary;
+        label = 'Shop Specific';
+        icon = Icons.store_rounded;
+        break;
+      case 'business':
+        color = TColors.teal;
+        label = 'Business Specific';
+        icon = Icons.business_rounded;
+        break;
+      case 'employee':
+        color = TColors.amber;
+        label = 'Employee Specific';
+        icon = Icons.badge_rounded;
+        break;
+      case 'student':
+        color = TColors.coral;
+        label = 'Student Specific';
+        icon = Icons.school_rounded;
+        break;
+      default:
+        color = Colors.grey;
+        label = 'Personalized';
+        icon = Icons.person_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 10),
+          const SizedBox(width: 4),
+          Text(
+            label.tr(context),
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:hive/hive.dart';
 import 'package:tadbeerai/core/models/tadbeer_models.dart';
+import 'package:tadbeerai/core/models/user_profile_model.dart';
 import 'package:tadbeerai/core/constants/constants.dart';
 import 'package:tadbeerai/core/services/auth_service.dart';
 
@@ -48,7 +51,23 @@ class ApiService {
   }
 
   static Future<List<NewsItem>> getFeed({bool forceRefresh = false}) async {
-    final url = forceRefresh ? '$_base/feed?refresh=true' : '$_base/feed';
+    String? category;
+    try {
+      final box = Hive.box<dynamic>('user_profile_box');
+      final dynamic raw = box.get('user_profile');
+      if (raw != null) {
+        final profile = UserProfileModel.fromJson(Map<String, dynamic>.from(raw));
+        if (profile.category.isNotEmpty) {
+          category = profile.category;
+        }
+      }
+    } catch (_) {}
+
+    var url = forceRefresh ? '$_base/feed?refresh=true' : '$_base/feed';
+    if (category != null && category.isNotEmpty) {
+      url += url.contains('?') ? '&category=$category' : '?category=$category';
+    }
+
     final res = await http
         .get(Uri.parse(url), headers: await _headers())
         .timeout(_timeout);
@@ -66,6 +85,27 @@ class ApiService {
     String language = 'en',
   }) async {
     _lastScenario = detectScenarioKey(text: text, sourceUrl: sourceUrl);
+
+    Map<String, dynamic>? userProfileJson;
+    try {
+      final box = Hive.box<dynamic>('user_profile_box');
+      final dynamic profileMap = box.get('user_profile');
+      if (profileMap != null) {
+        final map = Map<String, dynamic>.from(profileMap);
+        final category = map['category'] ?? '';
+        final profileData = Map<String, dynamic>.from(map['profileData'] ?? {});
+        final city = profileData['city'] ?? '';
+
+        userProfileJson = {
+          'category': category,
+          'city': city,
+          ...profileData,
+        };
+      }
+    } catch (e) {
+      debugPrint('Error getting user profile for API: $e');
+    }
+
     final res = await http
         .post(
           Uri.parse('$_base/analyse'),
@@ -74,6 +114,7 @@ class ApiService {
             if (text != null) 'text': text,
             if (sourceUrl != null) 'source_url': sourceUrl,
             'language': language,
+            if (userProfileJson != null) 'user_profile': userProfileJson,
           }),
         )
         .timeout(_timeout);
@@ -89,17 +130,99 @@ class ApiService {
     throw Exception(_httpErrorMessage('Analyse', res));
   }
 
+  static Future<void> registerUser({
+    required String userId,
+    required String category,
+    required String name,
+    required String email,
+    required String phone,
+    required String fcmToken,
+    required Map<String, dynamic> profileData,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$_base/register'),
+          headers: await _headers(),
+          body: jsonEncode({
+            'user_id': userId,
+            'category': category,
+            'name': name,
+            'email': email,
+            'phone': phone,
+            'fcm_token': fcmToken,
+            'profile_data': profileData,
+          }),
+        )
+        .timeout(_timeout);
+    if (res.statusCode != 200) {
+      throw Exception(_httpErrorMessage('Register user', res));
+    }
+  }
+
+  static Future<UserProfileModel?> getUserProfile(String userId) async {
+    final res = await http
+        .get(Uri.parse('$_base/users/$userId'), headers: await _headers())
+        .timeout(_timeout);
+    if (res.statusCode == 200) {
+      try {
+        return UserProfileModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+      } catch (e) {
+        debugPrint('Error parsing user profile response: $e');
+      }
+    }
+    return null;
+  }
+
+  static Future<void> deleteAccount({String? token}) async {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    final effectiveToken = token ?? await AuthService.instance.getIdToken();
+    if (effectiveToken != null) {
+      headers['Authorization'] = 'Bearer $effectiveToken';
+    }
+
+    final res = await http
+        .delete(
+          Uri.parse('$_base/delete-account'),
+          headers: headers,
+        )
+        .timeout(_timeout);
+    if (res.statusCode != 200) {
+      throw Exception(_httpErrorMessage('Delete account', res));
+    }
+  }
+
   static Future<SimulationResult> simulate({
     required int actionIndex,
     String? userId,
     List<String>? notifyChannels,
   }) async {
+    Map<String, dynamic>? userProfileJson;
+    try {
+      final box = Hive.box<dynamic>('user_profile_box');
+      final dynamic profileMap = box.get('user_profile');
+      if (profileMap != null) {
+        final map = Map<String, dynamic>.from(profileMap);
+        final category = map['category'] ?? '';
+        final profileData = Map<String, dynamic>.from(map['profileData'] ?? {});
+        final city = profileData['city'] ?? '';
+
+        userProfileJson = {
+          'category': category,
+          'city': city,
+          ...profileData,
+        };
+      }
+    } catch (e) {
+      debugPrint('Error getting user profile for API: $e');
+    }
+
     final body = <String, dynamic>{
       'action_index': actionIndex,
       'scenario': _lastScenario,
+      if (userProfileJson != null) 'user_profile': userProfileJson,
     };
     if (userId != null) body['user_id'] = userId;
-    if (notifyChannels != null && notifyChannels.isNotEmpty) {
+    if (notifyChannels != null) {
       body['notify_channels'] = notifyChannels;
     }
 
@@ -140,7 +263,8 @@ class ApiService {
     throw Exception('Failed to load state');
   }
 
-  static Future<Map<String, dynamic>> updateState(Map<String, dynamic> updates) async {
+  static Future<Map<String, dynamic>> updateState(
+      Map<String, dynamic> updates) async {
     final res = await http
         .post(
           Uri.parse('$_base/state'),

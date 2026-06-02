@@ -16,7 +16,7 @@ graph TD
     subgraph Flutter Mobile App
         UI[Premium Mobile UI]
         Hive[Hive DB - Persistence]
-        Prov[Provider - Theme/Lang]
+        Prov[Provider - Theme/Lang/Persona]
     end
 
     %% API Layer
@@ -42,6 +42,7 @@ graph TD
         LLM[Gemini / Groq API]
         FStore[Google Firestore]
         FCM[Firebase Cloud Messaging]
+        SMTP[SMTP Email Server]
     end
 
     %% Visual Connections
@@ -65,6 +66,7 @@ graph TD
     API --> A6
     A6 -->|Run Math Simulations| FStore
     A6 -->|Notify Push/SMS| FCM
+    A6 -->|Notify Email| SMTP
 ```
 
 ---
@@ -81,11 +83,11 @@ The core value of TadbeerAI lies in its specialized, collaborative **Multi-Agent
 | **Agent 3** | **Insight Extractor** | Extracts specific business signals from text, quantifying SBP rate changes, PKR devaluation, and fuel hikes without hallucinations. | `Gemini 2.0 Flash` |
 | **Agent 4** | **Impact Analyzer** | Assesses business SWOT impacts across key metrics (delivery fees, customer churn, supply chain delays, alternate sourcing). | `Groq / Llama 3.3` |
 | **Agent 5** | **Action Generator** | Generates ranked, highly practical operational decisions. Quantifies churn risk, timeline, and business mathematics. | `action_generator.py` |
-| **Agent 6** | **Simulation Agent** | Executes selected actions, performs real-world math simulations, updates variables in the mock/real DB, and triggers FCM/SMS alerts. | `simulation_agent.py` |
+| **Agent 6** | **Simulation Agent** | Executes selected actions, performs real-world math simulations, updates variables in the mock/real DB, and triggers FCM/SMS/Email alerts. | `simulation_agent.py` |
 
 ---
 
-## 🛠️ Key Engineering Features
+## 🏗️ Key Engineering Features
 
 ### 🔌 1. Self-Healing Crawler System
 Many Pakistani news portals implement aggressive security measures (like Cloudflare walls) that block automated headers with HTTP 403, or utilize dynamic SPA frameworks that return blank HTML. 
@@ -95,13 +97,25 @@ Instead of showing a raw HTTP 422 error, **Agent 2 automatically self-heals**:
 * It invokes the active LLM (Gemini or Groq) to generate a realistic, 150-250 word financial news article representing exactly what the article is about.
 * The downstream agents analyze this generated text seamlessly, ensuring the user experiences a flawless analysis flow with zero crashes!
 
-### ⚡ 2. Intelligent Auto & Force-Refresh
+### 👤 2. Dynamic Category-Wise Personalization (Personas)
+TadbeerAI is built around **4 specialized user personas**: **Shop Owners, Business Owners, Salaried Employees, and Students**. Personalization happens at every stage of the pipeline:
+* **Backend Keyword Filtering:** The `/feed` endpoint filters the news feed by keyword dictionaries specific to each persona, ensuring users only see what is relevant to their role.
+* **Frontend Relevance Scoring & Badging:** The Flutter app runs a dynamic scoring algorithm to sort highly relevant news cards to the top of the feed, complete with visual UI badges (`Shop Specific`, `Student Specific`, etc.).
+* **Persona-Driven Agent Reasoning:** The downstream AI agents (Agents 3, 4, and 5) receive the user's profile and dynamically tailor their extracted insights, SWOT impacts, and recommended operational decisions to fit the user's specific context.
+
+### 📢 3. Multi-Channel Alert Delivery System
+When a user decides to execute a recommended action:
+* **Execution Engine:** Clicking "Execute & notify users" invokes Agent 6, running mathematical state changes on the server and persisting changes to Firestore (or JSON database fallback).
+* **SMTP & FCM Integration:** Dispatches real push notifications via Firebase Cloud Messaging and professional risk reports via SMTP Email to registered account users.
+* **Gemini-Powered SMS Drafting:** Automatically calls Gemini to draft a contextually relevant, customer-facing SMS announcement explaining the operational changes (e.g., price updates or delivery delays) that the business owner can copy and send to their client lists.
+
+### ⚡ 4. Intelligent Auto & Force-Refresh
 * **Auto-Expiration:** Backend `/feed` cache automatically expires and updates if the file is more than 10 minutes old, eliminating stale news feeds.
 * **Client-Side Trigger:** Pull-to-refresh and the refresh button on the Flutter app automatically pass `/feed?refresh=true`, bypassing backend caches and updating RSS feeds in real-time.
 
-### 🎨 3. Premium Flutter UI & UX
+### 🎨 5. Premium Flutter UI & UX
 * **Micro-Animations:** Seamless transitions, card entries, shimmers, and status changes powered by `flutter_animate`.
-* **Zero Flashes:** hive persistence is queried synchronously inside Flutter's `main()` before rendering, ensuring the user's preferred theme and language are applied immediately without transient flashes.
+* **Zero Flashes:** Hive persistence is queried synchronously inside Flutter's `main()` before rendering, ensuring the user's preferred theme and language are applied immediately without transient flashes.
 * **Detailed Trace Logs:** Shows full step-by-step reasoning logs (Execution Logs, State Diffs, Timings) for all past simulation alerts.
 
 ---
@@ -174,8 +188,8 @@ Instead of showing a raw HTTP 422 error, **Agent 2 automatically self-heals**:
 ## 🏆 Hackathon Context
 * **Project Name:** TadbeerAI
 * **Team Name:** TADBEERAI
-* **Hackathon:** AISeekho2026
-* **Challenge:** 1 (Pakistan Volatile Business Decision Support System)
+* **Hackathon:** Google Antigravity AISeekho2026
+* **Challenge:** 1 Autonomous Content-to-Action Agent (Insight → Action System)
 
 ---
 Developed with ♥ by team **TADBEERAI**. Empowering Pakistani businesses through proactive, self-healing agentic intelligence.

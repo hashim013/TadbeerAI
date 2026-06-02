@@ -88,9 +88,9 @@ class ImpactItem {
   final String severity;
 
   factory ImpactItem.fromJson(Map<String, dynamic> json) => ImpactItem(
-        description: json['description'] as String,
+        description: (json['description'] as String?) ?? '',
         quantified: json['quantified'] as String?,
-        severity: json['severity'] as String,
+        severity: (json['severity'] as String?) ?? 'medium',
       );
 }
 
@@ -110,9 +110,9 @@ class ActionItem {
   final String? churnRisk;
 
   factory ActionItem.fromJson(Map<String, dynamic> json) => ActionItem(
-        rank: json['rank'] as int,
-        title: json['title'] as String,
-        detail: json['detail'] as String,
+        rank: (json['rank'] as int?) ?? 0,
+        title: (json['title'] as String?) ?? '',
+        detail: (json['detail'] as String?) ?? '',
         businessMath: json['business_math'] as String?,
         churnRisk: json['churn_risk'] as String?,
       );
@@ -206,17 +206,21 @@ class InsightResult {
   final List<AgentStep> agentTrace;
 
   factory InsightResult.fromJson(Map<String, dynamic> json) => InsightResult(
-        insightTitle: json['insight'] as String? ?? json['insight_title'] as String,
-        insightDetail: json['insight_detail'] as String,
-        confidence: (json['confidence'] as num).toDouble(),
-        confidenceReason: json['confidence_reason'] as String,
-        tags: (json['tags'] as List).cast<String>(),
-        impacts: (json['impacts'] as List)
-            .map((e) => ImpactItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        actions: (json['actions'] as List)
-            .map((e) => ActionItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        insightTitle: (json['insight'] as String?) ?? (json['insight_title'] as String?) ?? '',
+        insightDetail: (json['insight_detail'] as String?) ?? '',
+        confidence: ((json['confidence'] as num?) ?? 0.5).toDouble(),
+        confidenceReason: (json['confidence_reason'] as String?) ?? '',
+        tags: json['tags'] != null ? (json['tags'] as List).cast<String>() : [],
+        impacts: json['impacts'] != null
+            ? (json['impacts'] as List)
+                .map((e) => ImpactItem.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : [],
+        actions: json['actions'] != null
+            ? (json['actions'] as List)
+                .map((e) => ActionItem.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : [],
         agentTrace: json['agent_trace'] != null
             ? (json['agent_trace'] as List)
                 .map((e) => AgentStep.fromJson(e as Map<String, dynamic>))

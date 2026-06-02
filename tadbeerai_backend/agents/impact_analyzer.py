@@ -22,21 +22,56 @@ Domain-specific guidance:
 """
 
 
-def analyze_impact(insight: dict, domain: str, entities: list[str]) -> list[dict]:
+def analyze_impact(insight: dict, domain: str, entities: list[str], user_profile: dict = None, language: str = "en") -> list[dict]:
     """
     Agent 4: Impact Analyzer
     Uses Gemini + formulas to calculate quantified business impacts.
     """
     formulas = IMPACT_FORMULAS.get(domain, {})
 
+    lang_rule = ""
+    if language == "ur":
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'description' and 'calculation_logic' in Urdu script (Urdu language)."
+    elif language == "roman_ur":
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'description' and 'calculation_logic' in Roman Urdu (Urdu written in Latin/English alphabets, e.g. 'Nuksan Rs. 5000 hoga')."
+    else:
+        lang_rule = "\nCRITICAL LANGUAGE RULE: You MUST write the values for 'description' and 'calculation_logic' in English."
+
+    profile_info = ""
+    if user_profile:
+        category = user_profile.get("category", "")
+        city = user_profile.get("city", "")
+        profile_info = f"User Profile: {category} in {city}\n"
+        if category == "employee":
+            salary_range = user_profile.get("salary_range", "")
+            sector = user_profile.get("sector", "")
+            profile_info += f"Monthly salary range: {salary_range}, Sector: {sector}\n"
+        elif category == "shop":
+            shop_type = user_profile.get("shop_type", "")
+            monthly_revenue = user_profile.get("monthly_revenue", "")
+            profile_info += f"Shop type: {shop_type}, Monthly revenue: {monthly_revenue}\n"
+        elif category == "business":
+            industry = user_profile.get("industry", "")
+            monthly_turnover = user_profile.get("monthly_turnover", "")
+            profile_info += f"Industry: {industry}, Turnover: {monthly_turnover}\n"
+        elif category == "student":
+            field_of_study = user_profile.get("field_of_study", "")
+            university = user_profile.get("university", "")
+            profile_info += f"Field: {field_of_study}, University: {university}\n"
+        profile_info += "\nAnalyse how this specific news impacts THIS user personally.\nGive impact in Pakistani Rupees relevant to their exact situation.\nBe specific — not generic business advice.\n"
+    else:
+        profile_info = "Analyse business impact of: local Pakistan business context."
+
     prompt = f"""
-Given this Pakistan business insight, calculate specific business impacts.
+{profile_info}
 
 INSIGHT: {insight.get('insight_title', '')}
 DETAIL: {insight.get('insight_detail', '')}
 DOMAIN: {domain}
 ENTITIES/NUMBERS FOUND: {', '.join(entities)}
 CALCULATION PARAMETERS: {formulas}
+
+{lang_rule}
 
 Respond with JSON array of impact objects:
 [
@@ -54,7 +89,7 @@ Rules:
 - severity: "high" | "medium" | "low"
 - calculation_logic shows the actual math (judges love this)
 - Focus on Pakistan SME/business context
-- Be specific to {domain} domain
+- Be specific to the situation.
 """
 
     result = call_llm_json(prompt, IMPACT_SYSTEM_PROMPT)

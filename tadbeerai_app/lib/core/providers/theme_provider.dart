@@ -15,4 +15,12 @@ class ThemeProvider extends ChangeNotifier {
     await HiveService.saveThemeMode(_themeMode);
     notifyListeners();
   }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    if (_themeMode != mode) {
+      _themeMode = mode;
+      await HiveService.saveThemeMode(mode);
+      notifyListeners();
+    }
+  }
 }

@@ -4,14 +4,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:hive/hive.dart';
 
 import '../../core/models/tadbeer_models.dart';
 import '../../core/models/user_profile.dart';
+import '../../core/providers/language_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/user_profile_service.dart';
-import '../../features/onboarding/onboarding_screen.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/shared_widgets.dart';
 import '../simulation/before_after_screen.dart';
@@ -83,8 +84,52 @@ class _InsightScreenState extends State<InsightScreen> {
   Future<void> _executeSimulation() async {
     setState(() => _simulating = true);
     try {
+      // Determine if we are running in Guest Mode (either via AuthService state, Hive profile mode, or no signed in user)
+      bool isGuestMode = AuthService.instance.isGuest ||
+          FirebaseAuth.instance.currentUser == null;
+      if (!isGuestMode) {
+        try {
+          final box = Hive.box<dynamic>('user_profile_box');
+          final dynamic profileMap = box.get('user_profile');
+          if (profileMap != null) {
+            final map = Map<String, dynamic>.from(profileMap);
+            if (map['mode'] == 'guest' &&
+                FirebaseAuth.instance.currentUser == null) {
+              isGuestMode = true;
+            }
+          }
+        } catch (_) {}
+      }
+
       // Handle guest execution
-      if (AuthService.instance.isGuest) {
+      if (isGuestMode) {
+        if (!mounted) return;
+        final bool proceed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text('Guest Mode Simulation'.tr(context)),
+                content: Text(
+                  'You are running in Guest Mode. The simulation will execute and calculate results, but no real email or SMS alerts can be dispatched. Create an account to enable real-time alert notifications.'.tr(context),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text('Cancel'.tr(context)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text('Run Simulation'.tr(context)),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+
+        if (!proceed) {
+          setState(() => _simulating = false);
+          return;
+        }
+
         final simResult = await ApiService.simulate(
           actionIndex: _selectedActionIndex,
           userId: null,
@@ -132,48 +177,47 @@ class _InsightScreenState extends State<InsightScreen> {
       // Handle registered user execution
       final profile = await _loadProfile();
 
-      if (profile == null || !profile.canReceiveNotifications) {
+      // Build notification channels from profile (if available)
+      final channels = <String>[];
+      if (profile != null && profile.canReceiveNotifications) {
+        if (profile.notifySms) channels.add('sms');
+        if (profile.notifyEmail) channels.add('email');
+        if (profile.notifyPush) channels.add('push');
+      }
+
+      // If no notification channels available, warn user but still allow execution
+      if (channels.isEmpty) {
         if (!mounted) return;
-        setState(() => _simulating = false);
-        final complete = await showDialog<bool>(
+        final proceed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Complete your profile'),
-            content: const Text(
-              'Add your phone and email and enable at least one notification channel.',
+            title: Text('Limited Notifications'.tr(context)),
+            content: Text(
+              'Your profile isn\'t fully configured for notifications. '
+              'The simulation will run, but real-time alerts (SMS, Email) won\'t be dispatched.\n\n'
+              'Go to Settings to complete your profile for full notification support.'.tr(context),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                child: Text('Cancel'.tr(context)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Complete'),
+                child: Text('Run Anyway'.tr(context)),
               ),
             ],
           ),
         );
-        if (complete == true && mounted) {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-          );
-          // Retry execution after profile completion
-          await _executeSimulation();
+        if (proceed != true) {
+          setState(() => _simulating = false);
+          return;
         }
-        return;
       }
-
-      setState(() => _simulating = true);
-      final channels = <String>[];
-      if (profile.notifySms) channels.add('sms');
-      if (profile.notifyEmail) channels.add('email');
-      if (profile.notifyPush) channels.add('push');
 
       final simResult = await ApiService.simulate(
         actionIndex: _selectedActionIndex,
-        userId: profile.uid,
+        userId: profile?.uid,
         notifyChannels: channels,
       );
 
@@ -217,7 +261,7 @@ class _InsightScreenState extends State<InsightScreen> {
         setState(() => _simulating = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Execution failed: $e'),
+            content: Text('${'Execution failed'.tr(context)}: $e'),
             backgroundColor: TColors.red,
           ),
         );
@@ -230,11 +274,11 @@ class _InsightScreenState extends State<InsightScreen> {
     return Scaffold(
       backgroundColor: context.tBg,
       appBar: TTopBar(
-        title: 'Analysis result',
-        subtitle: 'Antigravity pipeline · 5 agents',
+        title: 'Analysis result'.tr(context),
+        subtitle: 'Antigravity pipeline · 5 agents'.tr(context),
         actions: [
           TBadge(
-            label: _loading ? 'Analysing…' : 'Done',
+            label: _loading ? 'Analysing…'.tr(context) : 'Done'.tr(context),
             color: _loading ? TColors.amber : TColors.teal,
             bg: _loading ? TColors.amberLight : TColors.tealLight,
             icon: _loading ? Icons.sync_rounded : Icons.check_circle_rounded,
@@ -255,11 +299,11 @@ class _InsightScreenState extends State<InsightScreen> {
   // ── LOADING ────────────────────────────────
   Widget _buildLoading() {
     final steps = [
-      'Ingesting content…',
-      'Extracting insights…',
-      'Analysing impact…',
-      'Generating actions…',
-      'Running simulation…',
+      'Ingesting content…'.tr(context),
+      'Extracting insights…'.tr(context),
+      'Analysing impact…'.tr(context),
+      'Generating actions…'.tr(context),
+      'Running simulation…'.tr(context),
     ];
     return Center(
       child: Padding(
@@ -270,7 +314,7 @@ class _InsightScreenState extends State<InsightScreen> {
             const CircularProgressIndicator(
                 color: TColors.primary, strokeWidth: 2),
             SizedBox(height: 24),
-            Text('TadbeerAI is thinking…', style: context.tHeading3),
+            Text('TadbeerAI is thinking…'.tr(context), style: context.tHeading3),
             SizedBox(height: 20),
             ...steps
                 .asMap()
@@ -284,10 +328,9 @@ class _InsightScreenState extends State<InsightScreen> {
 
   // ── ERROR ──────────────────────────────────
   Widget _buildError() {
-    final message = _error ?? 'Please try again';
-    final displayMessage = message.length > 280
-        ? '${message.substring(0, 280)}…'
-        : message;
+    final message = _error ?? 'Please try again'.tr(context);
+    final displayMessage =
+        message.length > 280 ? '${message.substring(0, 280)}…' : message;
 
     return Center(
       child: Padding(
@@ -298,14 +341,14 @@ class _InsightScreenState extends State<InsightScreen> {
             Icon(Icons.error_outline_rounded,
                 size: 48, color: context.tTextTertiary),
             const SizedBox(height: 16),
-            Text('Something went wrong',
+            Text('Something went wrong'.tr(context),
                 style: context.tHeading3, textAlign: TextAlign.center),
             const SizedBox(height: 8),
             Text(displayMessage,
                 style: context.tBodyMd, textAlign: TextAlign.center),
             const SizedBox(height: 24),
             TPrimaryButton(
-              label: 'Retry',
+              label: 'Retry'.tr(context),
               icon: Icons.refresh_rounded,
               onTap: _analyse,
             ),
@@ -376,7 +419,7 @@ class _InsightScreenState extends State<InsightScreen> {
         border: Border(top: BorderSide(color: context.tBorder, width: 0.5)),
       ),
       child: TPrimaryButton(
-        label: 'Execute & notify users',
+        label: 'Execute & notify users'.tr(context),
         icon: Icons.notifications_active_rounded,
         isLoading: _simulating,
         onTap: _executeSimulation,
@@ -399,7 +442,7 @@ class _InsightCard extends StatelessWidget {
         children: [
           TCardHeader(
               icon: Icons.lightbulb_rounded,
-              label: 'Key insight',
+              label: 'Key insight'.tr(context),
               color: TColors.primaryDark,
               bg: TColors.primaryLight),
           Padding(
@@ -419,7 +462,7 @@ class _InsightCard extends StatelessWidget {
                 // Confidence bar
                 Row(
                   children: [
-                    Text('Confidence',
+                    Text('Confidence'.tr(context),
                         style: TextStyle(
                             fontSize: 11, color: context.tTextTertiary)),
                     SizedBox(width: 10),
@@ -508,7 +551,7 @@ class _ImpactCard extends StatelessWidget {
         children: [
           TCardHeader(
               icon: Icons.trending_up_rounded,
-              label: 'Impact analysis',
+              label: 'Impact analysis'.tr(context),
               color: TColors.amberDark,
               bg: TColors.amberLight),
           Padding(
@@ -583,9 +626,9 @@ class _ActionsCard extends StatelessWidget {
       decoration: context.tCard,
       child: Column(
         children: [
-          const TCardHeader(
+          TCardHeader(
               icon: Icons.checklist_rounded,
-              label: 'Recommended actions',
+              label: 'Recommended actions'.tr(context),
               color: TColors.tealDark,
               bg: TColors.tealLight),
           Padding(
@@ -680,7 +723,7 @@ class _ActionsCard extends StatelessWidget {
                                               BorderRadius.circular(6),
                                         ),
                                         child: Text(
-                                            'Churn risk: ${a.churnRisk}',
+                                            '${'Churn risk: '.tr(context)}${a.churnRisk}',
                                             style: const TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
@@ -736,7 +779,7 @@ class _AgentTraceMini extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const TSectionLabel(label: 'Agent trace'),
+        TSectionLabel(label: 'Agent trace'.tr(context)),
         SizedBox(height: 6),
         Container(
           decoration: context.tCard,
@@ -770,7 +813,7 @@ class _AgentTraceMini extends StatelessWidget {
                     ),
                     SizedBox(width: 10),
                     Expanded(
-                        child: Text(step['name'] as String,
+                        child: Text((step['name'] as String).tr(context),
                             style: context.tBodyMd)),
                     if (status == AgentStatus.active)
                       Container(
@@ -780,7 +823,7 @@ class _AgentTraceMini extends StatelessWidget {
                           color: TColors.primaryLight,
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text('Running…',
+                        child: Text('Running…'.tr(context),
                             style: TextStyle(
                                 fontSize: 11,
                                 color: TColors.primaryDark,

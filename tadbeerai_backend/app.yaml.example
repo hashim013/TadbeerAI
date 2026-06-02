@@ -1,0 +1,6 @@
+env_variables:
+  AI_PROVIDER: "groq"
+  GROQ_API_KEY: "PASTE_YOUR_GROQ_KEY_HERE"
+  GEMINI_API_KEY: "PASTE_YOUR_GEMINI_KEY_HERE"
+  GMAIL_USER: "your-email@gmail.com"
+  GMAIL_APP_PASSWORD: "your-app-password"

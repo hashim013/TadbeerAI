@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/providers/language_provider.dart';
 import '../../core/models/tadbeer_models.dart';
 import '../../core/providers/notification_provider.dart';
 import '../../core/services/alert_store.dart';
 import '../../core/services/api_service.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/shared_widgets.dart';
 import '../feed/feed_screen.dart';
 import '../input/input_screen.dart';
 import '../notifications/notifications_screen.dart';
-import '../profile/profile_screen.dart';
-import '../tax/tax_desk_screen.dart';
+import '../settings/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,12 +28,11 @@ class HomeScreenState extends State<HomeScreen> {
     setState(() {
       _currentIndex = index;
     });
-    if (index == 3) _refreshBadgeCounts();
+    if (index == 2) _refreshBadgeCounts();
   }
 
   final List<Widget> _screens = [
     const FeedScreen(),
-    const TaxDeskScreen(),
     const InputScreen(),
     const NotificationsScreen(),
   ];
@@ -70,19 +69,28 @@ class HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         elevation: 0,
-        backgroundColor: context.tSurface,
+        backgroundColor: TColors.primary,
         scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: context.tBorder, width: 0.5)),
+        toolbarHeight: 70,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
         title: Row(
           children: [
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: context.tBorder, width: 1),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -107,17 +115,17 @@ class HomeScreenState extends State<HomeScreen> {
                   fontSize: 18,
                 ),
                 children: [
-                  TextSpan(
+                  const TextSpan(
                     text: 'Tadbeer',
                     style: TextStyle(
-                      color: context.tTextPrimary,
+                      color: Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const TextSpan(
                     text: 'AI',
                     style: TextStyle(
-                      color: TColors.primary,
+                      color: TColors.coral,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -127,27 +135,25 @@ class HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          ThemeToggleButton(),
-          const SizedBox(width: 8),
           GestureDetector(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
             ),
             child: Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: context.tBorder, width: 1),
-                color: context.tSurfaceAlt,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+                color: Colors.white.withValues(alpha: 0.15),
               ),
-              child: CircleAvatar(
+              child: const CircleAvatar(
                 radius: 14,
-                backgroundColor: TColors.primaryLight,
+                backgroundColor: Colors.transparent,
                 child: Icon(
                   Icons.person_rounded,
                   size: 16,
-                  color: TColors.primaryDark,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -179,10 +185,9 @@ class HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.rss_feed_rounded, 'Feed'),
-              _buildNavItem(1, Icons.account_balance_rounded, 'Tax Desk'),
-              _buildNavItem(2, Icons.add_circle_outline_rounded, 'Input'),
-              _buildNavItem(3, Icons.notifications_rounded, 'Alerts',
+              _buildNavItem(0, Icons.rss_feed_rounded, 'Feed'.tr(context)),
+              _buildNavItem(1, Icons.add_circle_outline_rounded, 'Input'.tr(context)),
+              _buildNavItem(2, Icons.notifications_rounded, 'Alerts'.tr(context),
                   badgeCount: totalBadge),
             ],
           ),
@@ -202,7 +207,7 @@ class HomeScreenState extends State<HomeScreen> {
         behavior: HitTestBehavior.opaque,
         onTap: () {
           setState(() => _currentIndex = index);
-          if (index == 3) _refreshBadgeCounts();
+          if (index == 2) _refreshBadgeCounts();
         },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

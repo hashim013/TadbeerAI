@@ -33,12 +33,57 @@ from agents.execution_handlers.supply_chain_executor import execute_supply_chain
 logger = logging.getLogger(__name__)
 
 
+def send_fcm_push(fcm_token: str, title: str, body: str):
+    """Send a push notification via FCM using the notification service."""
+    try:
+        from core.notification_service import get_notification_service
+        get_notification_service().send_push(fcm_token, title, body)
+        print(f"[FCM Push] Sent push alert to {fcm_token[:15]}...")
+    except Exception as e:
+        print(f"[FCM Push] Failed to send push: {e}")
+
+
+def classify_news_category(insight_title: str, insight_detail: str) -> str:
+    """Classify news item into shop, business, employee, or student category."""
+    prompt = f"""
+Classify the following news/insight into exactly one of these four categories: "shop", "business", "employee", "student".
+
+INSIGHT TITLE: {insight_title}
+INSIGHT DETAIL: {insight_detail}
+
+Respond with JSON in exactly this format:
+{{
+  "category": "one of shop, business, employee, student"
+}}
+"""
+    try:
+        result = call_llm_json(prompt, "You are a news classifier that maps business news to user personas.")
+        if result and isinstance(result, dict) and result.get("category"):
+            cat = result["category"].strip().lower()
+            if cat in ["shop", "business", "employee", "student"]:
+                print(f"[classify_news_category] LLM classified news as: {cat}")
+                return cat
+    except Exception as e:
+        print(f"[classify_news_category] LLM classification error: {e}")
+        
+    # Fallback keyword matching
+    text = (insight_title + " " + insight_detail).lower()
+    if any(k in text for k in ["salary", "job", "employee", "wage", "workforce", "hiring"]):
+        return "employee"
+    if any(k in text for k in ["student", "university", "education", "stipend", "school", "college"]):
+        return "student"
+    if any(k in text for k in ["shop", "retail", "mart", "store", "vendor", "inventory", "revenue"]):
+        return "shop"
+    return "business"
+
+
 def simulate_action(
     actions: list[dict],
     domain: str,
     insight: dict,
     user_id: str | None = None,
     notify_channels: list[str] | None = None,
+    user_profile: dict | None = None,
 ) -> dict:
     """
     Agent 6: REAL EXECUTION (NOT SIMULATION)
@@ -166,29 +211,45 @@ def simulate_action(
     diffs = _calculate_diffs(before_state, after_state)
 
     # Send notifications to registered users (skip gracefully in guest mode)
-    log("[Notifications]", "📧 Sending alerts to registered users...", "info")
-    impact_str = f"Rs. {impact_value:.0f}" if isinstance(impact_value, float) else str(impact_value)
-    users_reached, sms_sent, emails_sent, push_sent, notif_msg, delivery_report = notification_svc.notify_all_users(
-        action_key=action_key,
-        action_description=action_title,
-        impact_amount=impact_str,
-        domain=domain,
-        action_id=transaction_id,
-        diffs=diffs,
-        notify_channels=notify_channels,
-    )
-
-    if users_reached > 0:
-        log("[Notifications]", f"✅ Alerts sent: {notif_msg}", "ok")
+    if user_id is None or (user_profile and user_profile.get("mode") == "guest"):
+        log("[Notifications]", "ℹ️ Guest mode: skipping real-time notification alerts", "info")
+        users_reached = 0
+        sms_sent = 0
+        emails_sent = 0
+        push_sent = 0
+        delivery_report = {
+            "sms_recipients": 0,
+            "email_recipients": 0,
+            "push_recipients": 0,
+            "status": "guest",
+            "sms_skipped": True,
+            "email_skipped": True,
+            "push_skipped": True
+        }
     else:
-        log("[Notifications]", f"ℹ️ Guest mode: {notif_msg}", "info")
+        log("[Notifications]", f"📧 Sending alerts to initiating user ({user_id})...", "info")
+        impact_str = f"Rs. {impact_value:.0f}" if isinstance(impact_value, float) else str(impact_value)
+        users_reached, sms_sent, emails_sent, push_sent, notif_msg, delivery_report = notification_svc.notify_all_users(
+            action_key=action_key,
+            action_description=action_title,
+            impact_amount=impact_str,
+            domain=domain,
+            action_id=transaction_id,
+            diffs=diffs,
+            notify_channels=notify_channels,
+            user_id=user_id,
+        )
+        if users_reached > 0:
+            log("[Notifications]", f"✅ Alerts sent: {notif_msg}", "ok")
+        else:
+            log("[Notifications]", f"ℹ️ Notification skipped: {notif_msg}", "info")
 
     # Calculate execution time
     exec_time = (datetime.now() - start_time).total_seconds()
 
     # Generate intelligent SMS draft using Gemini
     log("[Agent6]", "📝 Generating intelligent SMS draft...", "info")
-    sms_draft = _generate_sms_draft(domain, action_title, action_detail, insight, diffs)
+    sms_draft = _generate_sms_draft(domain, action_title, action_detail, insight, diffs, user_profile=user_profile)
     log("[Agent6]", f"✅ SMS draft: {sms_draft[:60]}...", "ok")
 
     log("[Agent6]", f"✅ REAL EXECUTION COMPLETE · {len(diffs)} state changes · {users_reached} users notified · {exec_time:.2f}s", "ok")
@@ -377,17 +438,31 @@ def _generate_sms_draft(
     action_detail: str,
     insight: dict,
     diffs: list[dict],
+    user_profile: dict = None,
 ) -> str:
     """
-    Generate a concise customer-facing SMS notification informing users about a price/business change.
+    Generate a concise customer-facing or personal SMS notification informing users about a price/business change.
     Must be exactly 5 to 8 lines long and easy for customers/users to understand.
     """
     diff_text = ", ".join(
         f"{d['field']}: {d['before']} → {d['after']}" for d in diffs
     ) if diffs else "No configuration changes"
 
+    profile_info = ""
+    if user_profile:
+        category = user_profile.get("category", "")
+        profile_info = f"\nUser Profile / Persona: {category}\n"
+        if category in ["shop", "business"]:
+            profile_info += "The user is a business/shop owner. Write the SMS draft from the perspective of their business informing their customers, clients, or subscribers (e.g. starting with '[TadbeerAI] 📢 Alert' and addressing 'Dear Valued Customer' or similar).\n"
+        elif category == "student":
+            profile_info += "The user is a student. Write the SMS draft as a personal alert or helpful notification tailored to students (e.g. starting with '[TadbeerAI] 📢 Student Alert' and addressing 'Dear Student' or 'Dear Student User' informing them how this event affects student expenses/housing/transport/budgets).\n"
+        elif category == "employee":
+            profile_info += "The user is an employee/salaried professional. Write the SMS draft as a personal alert or notification tailored to salaried workers (e.g. starting with '[TadbeerAI] 📢 Salary & Transit Alert' and addressing 'Dear Valued Employee' or 'Dear Salaried Professional' informing them how this event affects commuting costs, salary buffers, or personal expenses).\n"
+    else:
+        profile_info = "\nWrite the SMS draft from the perspective of a Pakistan business informing its customers.\n"
+
     prompt = f"""
-Generate a concise, professional, and clear SMS notification informing the customers, subscribers, or users of the business about a recent event (like a price change) and the action taken.
+Generate a concise, professional, and clear SMS notification informing the recipient about a recent event and the action taken.
 
 CONTEXT:
 - Business Domain: {domain}
@@ -396,10 +471,12 @@ CONTEXT:
 - Action Details: {action_detail}
 - System State Changes: {diff_text}
 
+{profile_info}
+
 CRITICAL RULES:
 1. The SMS must be EXACTLY 5 to 8 lines long.
-2. The message must begin with "[TadbeerAI] 📢 " followed by a customer-facing title on the first line.
-3. The rest of the message must be written from the perspective of the business informing its customers or users (e.g. starting with "Dear Valued Customer" or similar).
+2. The message must begin with "[TadbeerAI] 📢 " followed by a customer-facing or user-appropriate title on the first line.
+3. The rest of the message must be written from the perspective of the business (or TadbeerAI helper) informing its customers/users.
 4. Explain the price change or business event clearly and state what action was taken / adjustment made that affects them.
 5. Keep the language extremely simple, direct, and easy to understand at a glance.
 6. Do NOT include internal developer or system terms (like "import_cost_buffer" or "Firestore database"). Use customer-facing terms instead.

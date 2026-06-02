@@ -25,46 +25,80 @@ class TTopBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(64);
+  Size get preferredSize => const Size.fromHeight(70);
 
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    final appBarColor = TColors.primary; // Matches the brand's primary UI color
     return Container(
       padding: EdgeInsets.fromLTRB(16, topPadding, 16, 0),
       decoration: BoxDecoration(
-        color: context.tSurface,
-        border: Border(bottom: BorderSide(color: context.tBorder, width: 0.5)),
+        color: appBarColor,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          if (showBack)
-            GestureDetector(
-              onTap: onBack ?? () => Navigator.pop(context),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: context.tBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: context.tBorder, width: 0.5),
-                ),
-                child: Icon(Icons.arrow_back_ios_new_rounded,
-                    size: 15, color: context.tTextSecondary),
-              ),
-            ),
-          if (showBack) SizedBox(width: 12),
-          Expanded(
+          // Title in the center
+          Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: context.tHeading3),
-                if (subtitle != null) Text(subtitle!, style: context.tCaption),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          if (actions != null) ...actions!,
+          // Back button on the left
+          if (showBack)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: onBack ?? () => Navigator.pop(context),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          // Actions on the right
+          if (actions != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: actions!,
+              ),
+            ),
         ],
       ),
     );
