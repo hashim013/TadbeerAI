@@ -1,8 +1,11 @@
 # --- Python Backend ---
 .venv/
 .env
+.env.*
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # --- Flutter Frontend ---
 .dart_tool/
@@ -12,6 +15,10 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 
-# --- Credentials ---
+# --- Credentials & Secrets ---
 *.json
-# (This ensures your Firebase Service Account JSON is NEVER uploaded)
+app.yaml
+*app.yaml
+*api_key*
+*secret*
+*credentials*

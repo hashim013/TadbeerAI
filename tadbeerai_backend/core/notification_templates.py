@@ -416,6 +416,12 @@ def format_notification_for_user(
     domain: str,
     timestamp: str,
     diffs: list[dict] | None = None,
+    insight: dict | None = None,
+    action_detail: str | None = None,
+    sms_draft: str | None = None,
+    business_math: str | None = None,
+    urgency: str | None = None,
+    timeline: str | None = None,
 ) -> Tuple[str, str, str]:
     """
     Format SMS and email content from template for a specific user.
@@ -428,6 +434,12 @@ def format_notification_for_user(
         domain: Business domain
         timestamp: ISO format timestamp
         diffs: List of before/after dicts
+        insight: Optional insight dict
+        action_detail: Optional recommended action instruction/detail
+        sms_draft: Optional generated SMS draft text
+        business_math: Optional business recovery math
+        urgency: Optional urgency level
+        timeline: Optional timeline
 
     Returns:
         (sms_content, email_subject, email_body)
@@ -452,6 +464,66 @@ def format_notification_for_user(
     # Format Email
     email_subject = template["email"]["subject"].format(**format_vars)
     email_body = template["email"]["body"].format(**format_vars)
+
+    additional_details = []
+
+    # 1. Insight Section
+    if insight:
+        title = insight.get("insight_title") or ""
+        detail = insight.get("insight_detail") or ""
+        additional_details.append("\n### 🚨 TADBEERAI BUSINESS ADVISOR INSIGHT & ANALYSIS")
+        if title:
+            additional_details.append(f"**Key Business Insight**: {title}")
+        if detail:
+            additional_details.append(f"**Implications & Context**: {detail}")
+
+        # 2. Impact Section
+        impacts = insight.get("impacts")
+        if impacts and isinstance(impacts, list):
+            additional_details.append("\n**Impact Analysis**:")
+            for imp in impacts:
+                if isinstance(imp, dict):
+                    desc = imp.get("description", "")
+                    quant = imp.get("quantified", "")
+                    calc = imp.get("calculation_logic", "")
+                    sev = imp.get("severity", "medium").lower()
+
+                    sev_emoji = "🔴 High" if sev == "high" else "🟡 Medium" if sev == "medium" else "🟢 Low"
+
+                    impact_line = f"  • [{sev_emoji}] {desc}"
+                    if quant:
+                        impact_line += f" (Impact: {quant})"
+                    additional_details.append(impact_line)
+                    if calc:
+                        additional_details.append(f"    Calculation: {calc}")
+
+    # 3. Recommended Action Detail Section
+    if action_description:
+        additional_details.append("\n**Recommended Action Details**:")
+        additional_details.append(f"  • **Action**: {action_description}")
+        if action_detail:
+            additional_details.append(f"  • **Detail**: {action_detail}")
+        if business_math:
+            additional_details.append(f"  • **Business Math / Savings**: {business_math}")
+
+        urgency_timeline_parts = []
+        if urgency:
+            urgency_timeline_parts.append(f"Urgency: {urgency.capitalize()}")
+        if timeline:
+            urgency_timeline_parts.append(f"Timeline: {timeline}")
+        if urgency_timeline_parts:
+            additional_details.append(f"  • **{', '.join(urgency_timeline_parts)}**")
+
+    # 4. SMS Draft Section
+    if sms_draft:
+        additional_details.append("\n**Generated Customer/User SMS Draft**:")
+        # Indent or wrap the SMS draft
+        sms_indented = "\n".join(f"  {line}" for line in sms_draft.split("\n"))
+        additional_details.append(sms_indented)
+
+    if additional_details:
+        divider = "\n" + "-"*40 + "\n"
+        email_body = email_body.strip() + divider + "\n".join(additional_details) + divider
 
     return sms_content, email_subject, email_body
 

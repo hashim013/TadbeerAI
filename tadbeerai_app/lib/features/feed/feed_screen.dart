@@ -327,11 +327,27 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   // ── DOMAIN FILTER CHIPS ───────────────────
+  List<String> get _domains {
+    if (_userCategory.isEmpty) {
+      return ['All', ...DomainConfig.domainConfig.keys];
+    }
+    
+    final Map<String, List<String>> mapping = {
+      'shop': ['Energy', 'Currency', 'Gold', 'Logistics', 'Finance', 'Policy'],
+      'business': ['Energy', 'Currency', 'Stock Market', 'Logistics', 'Finance', 'Policy', 'Trade', 'Business Operations'],
+      'employee': ['Currency', 'Finance', 'Policy', 'Business Operations'],
+      'student': ['Currency', 'Finance', 'Policy', 'Energy'],
+    };
+
+    final related = mapping[_userCategory.toLowerCase()] ?? [];
+    return ['All', ...related];
+  }
+
   Widget _buildDomainFilter() {
-    final domains = [
-      'All',
-      ...DomainConfig.domainConfig.keys,
-    ];
+    final domains = _domains;
+    if (!domains.contains(_selectedDomain)) {
+      _selectedDomain = 'All';
+    }
     return SizedBox(
       height: 36,
       child: ListView.separated(

@@ -134,13 +134,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TPrimaryButton(
             label: 'Sign in',
             icon: Icons.login_rounded,
-            onTap: () async {
-              await AuthService.instance.signOut();
-              if (!mounted) return;
-              Navigator.pushReplacement(
+            onTap: () {
+              Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AuthScreen()),
-              );
+              ).then((value) {
+                if (value == true && mounted) {
+                  _load();
+                }
+              });
             },
           ),
         ],

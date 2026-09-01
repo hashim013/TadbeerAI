@@ -95,9 +95,15 @@ class _InputScreenState extends State<InputScreen>
         dividerColor: Colors.transparent,
         splashFactory: NoSplash.splashFactory,
         tabs: [
-          Tab(icon: const Icon(Icons.text_fields_rounded, size: 16), text: 'Text'.tr(context)),
-          Tab(icon: const Icon(Icons.picture_as_pdf_rounded, size: 16), text: 'PDF'.tr(context)),
-          Tab(icon: const Icon(Icons.link_rounded, size: 16), text: 'URL'.tr(context)),
+          Tab(
+              icon: const Icon(Icons.text_fields_rounded, size: 16),
+              text: 'Text'.tr(context)),
+          Tab(
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+              text: 'PDF'.tr(context)),
+          Tab(
+              icon: const Icon(Icons.link_rounded, size: 16),
+              text: 'URL'.tr(context)),
         ],
       ),
     );
@@ -128,7 +134,8 @@ class _InputScreenState extends State<InputScreen>
                   fontSize: 13, color: context.tTextPrimary, height: 1.6),
               decoration: InputDecoration(
                 hintText:
-                    'Paste news article, report, or policy update here...\n\nAlso supports: اردو میں خبر یہاں لکھیں یا Roman Urdu mein likh saktay hain'.tr(context),
+                    'Paste news article, report, or policy update here...\n\nAlso supports: اردو میں خبر یہاں لکھیں یا Roman Urdu mein likh saktay hain'
+                        .tr(context),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -146,13 +153,17 @@ class _InputScreenState extends State<InputScreen>
             runSpacing: 8,
             children: [
               _SampleChip(
-                  label: '⛽ Petrol hike'.tr(context), onTap: () => _fillSample('petrol')),
+                  label: '⛽ Petrol hike'.tr(context),
+                  onTap: () => _fillSample('petrol')),
               _SampleChip(
-                  label: '💸 Rupee drop'.tr(context), onTap: () => _fillSample('rupee')),
+                  label: '💸 Rupee drop'.tr(context),
+                  onTap: () => _fillSample('rupee')),
               _SampleChip(
-                  label: '📉 Sales decline'.tr(context), onTap: () => _fillSample('sales')),
+                  label: '📉 Sales decline'.tr(context),
+                  onTap: () => _fillSample('sales')),
               _SampleChip(
-                  label: '🚢 Port delay'.tr(context), onTap: () => _fillSample('port')),
+                  label: '🚢 Port delay'.tr(context),
+                  onTap: () => _fillSample('port')),
             ],
           ).animate().fadeIn(delay: 200.ms),
         ],
@@ -211,7 +222,8 @@ class _InputScreenState extends State<InputScreen>
                   Text(
                     _pdfFileName != null
                         ? 'Tap to change file'.tr(context)
-                        : 'Max 10 MB · Sales, policy, logistics reports'.tr(context),
+                        : 'Max 10 MB · Sales, policy, logistics reports'
+                            .tr(context),
                     style: context.tCaption,
                   ),
                 ],
@@ -222,7 +234,8 @@ class _InputScreenState extends State<InputScreen>
           _InfoBox(
             icon: Icons.info_outline_rounded,
             text:
-                'Supported: Sales reports, policy documents, logistics summaries, financial statements'.tr(context),
+                'Supported: Sales reports, policy documents, logistics summaries, financial statements'
+                    .tr(context),
           ),
         ],
       ),
@@ -258,7 +271,8 @@ class _InputScreenState extends State<InputScreen>
           TSectionLabel(label: 'Browse news sources'.tr(context)),
           SizedBox(height: 4),
           Text(
-            'Open a source, find an article, then copy & paste its URL above'.tr(context),
+            'Open a source, find an article, then copy & paste its URL above'
+                .tr(context),
             style: TextStyle(
                 fontSize: 11, color: context.tTextTertiary, height: 1.4),
           ),
@@ -287,9 +301,9 @@ class _InputScreenState extends State<InputScreen>
           SizedBox(height: 16),
           _InfoBox(
             icon: Icons.info_outline_rounded,
-            text:
-                'Paste the full URL of a specific news article — not a homepage. '
-                'TadbeerAI will scrape and analyse the article content automatically.'.tr(context),
+            text: 'Paste the full URL of a specific news article — not a homepage. '
+                    'TadbeerAI will scrape and analyse the article content automatically.'
+                .tr(context),
           ),
         ],
       ),
@@ -301,24 +315,34 @@ class _InputScreenState extends State<InputScreen>
     return Row(
       children: [
         TSectionLabel(label: 'Language'.tr(context)),
-        SizedBox(width: 12),
-        _LangChip(
-            label: 'English'.tr(context),
-            code: 'en',
-            selected: _language == 'en',
-            onTap: () => setState(() => _language = 'en')),
-        SizedBox(width: 6),
-        _LangChip(
-            label: 'Urdu (Script)'.tr(context),
-            code: 'ur',
-            selected: _language == 'ur',
-            onTap: () => setState(() => _language = 'ur')),
-        SizedBox(width: 6),
-        _LangChip(
-            label: 'Urdu (Roman)'.tr(context),
-            code: 'roman_ur',
-            selected: _language == 'roman_ur',
-            onTap: () => setState(() => _language = 'roman_ur')),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _LangChip(
+                    label: 'English'.tr(context),
+                    code: 'en',
+                    selected: _language == 'en',
+                    onTap: () => setState(() => _language = 'en')),
+                const SizedBox(width: 6),
+                _LangChip(
+                    label: 'Urdu (Script)'.tr(context),
+                    code: 'ur',
+                    selected: _language == 'ur',
+                    onTap: () => setState(() => _language = 'ur')),
+                const SizedBox(width: 6),
+                _LangChip(
+                    label: 'Urdu (Roman)'.tr(context),
+                    code: 'roman_ur',
+                    selected: _language == 'roman_ur',
+                    onTap: () => setState(() => _language = 'roman_ur')),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -416,7 +440,8 @@ class _InputScreenState extends State<InputScreen>
           (uri.path.isEmpty || uri.path == '/') &&
           uri.query.isEmpty) {
         _showError(
-            'This looks like a homepage, not an article. Please paste a specific article URL.'.tr(context));
+            'This looks like a homepage, not an article. Please paste a specific article URL.'
+                .tr(context));
         return;
       }
     }

@@ -15,6 +15,7 @@ class ExecutionNotification {
     this.smsDraft = '',
     this.diffs = const [],
     this.execLog = const [],
+    this.agentTrace = const [],
   });
 
   final String id;
@@ -30,6 +31,7 @@ class ExecutionNotification {
   final String smsDraft;
   final List<StateDiff> diffs;
   final List<ExecLogLine> execLog;
+  final List<AgentStep> agentTrace;
 
   ExecutionNotification copyWith({bool? read}) => ExecutionNotification(
         id: id,
@@ -45,6 +47,7 @@ class ExecutionNotification {
         smsDraft: smsDraft,
         diffs: diffs,
         execLog: execLog,
+        agentTrace: agentTrace,
       );
 
   Map<String, dynamic> toJson() => {
@@ -61,6 +64,7 @@ class ExecutionNotification {
         'sms_draft': smsDraft,
         'diffs': diffs.map((d) => d.toJson()).toList(),
         'exec_log': execLog.map((l) => l.toJson()).toList(),
+        'agent_trace': agentTrace.map((e) => e.toJson()).toList(),
       };
 
   factory ExecutionNotification.fromJson(Map<String, dynamic> json) =>
@@ -88,6 +92,11 @@ class ExecutionNotification {
                 .map((e) => ExecLogLine.fromJson(e as Map<String, dynamic>))
                 .toList()
             : [],
+        agentTrace: json['agent_trace'] != null
+            ? (json['agent_trace'] as List)
+                .map((e) => AgentStep.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : [],
       );
 
   static ExecutionNotification fromSimulation({
@@ -110,6 +119,7 @@ class ExecutionNotification {
       smsDraft: result.smsDraft,
       diffs: result.diffs,
       execLog: result.execLog,
+      agentTrace: result.agentTrace,
     );
   }
 

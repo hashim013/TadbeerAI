@@ -101,6 +101,7 @@ class ExecutionDetailScreen extends StatelessWidget {
                 execTimeSeconds: n.execTimeSeconds,
                 execLog: n.execLog,
                 deliveryReport: d,
+                agentTrace: n.agentTrace,
               );
               Navigator.push(
                 context,

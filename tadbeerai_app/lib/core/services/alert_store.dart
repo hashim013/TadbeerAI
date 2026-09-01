@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/execution_notification.dart';
 
@@ -14,6 +16,7 @@ class AlertStore extends ChangeNotifier {
 
   List<ExecutionNotification> _executions = [];
   Set<String> _readMarketIds = {};
+  String _currentUid = 'guest';
 
   List<ExecutionNotification> get executions => List.unmodifiable(_executions);
   Set<String> get readMarketIds => Set.unmodifiable(_readMarketIds);
@@ -22,15 +25,61 @@ class AlertStore extends ChangeNotifier {
       _executions.where((e) => !e.read).length;
 
   Future<void> initialize() async {
+    await updateCurrentUser();
+  }
+
+  Future<void> updateCurrentUser() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? 'guest';
+    _currentUid = uid;
     await _loadExecutions();
     await _loadMarketRead();
     notifyListeners();
+
+    if (_currentUid != 'guest') {
+      _syncWithFirestore(_currentUid);
+    }
+  }
+
+  Future<void> _syncWithFirestore(String uid) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('execution_alerts')
+          .get();
+
+      final firestoreNotifications = snapshot.docs
+          .map((doc) => ExecutionNotification.fromJson(doc.data()))
+          .toList();
+
+      final merged = <String, ExecutionNotification>{};
+      for (final n in _executions) {
+        merged[n.id] = n;
+      }
+      for (final n in firestoreNotifications) {
+        if (merged.containsKey(n.id)) {
+          final isRead = merged[n.id]!.read || n.read;
+          merged[n.id] = n.copyWith(read: isRead);
+        } else {
+          merged[n.id] = n;
+        }
+      }
+
+      _executions = merged.values.toList();
+      _executions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      await _persistExecutions();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Firestore sync failed: $e');
+    }
   }
 
   Future<void> _loadExecutions() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_executionsKey);
+      final key = '${_executionsKey}_$_currentUid';
+      final raw = prefs.getString(key);
       if (raw != null) {
         final list = jsonDecode(raw) as List;
         _executions = list
@@ -38,6 +87,8 @@ class AlertStore extends ChangeNotifier {
                 ExecutionNotification.fromJson(e as Map<String, dynamic>))
             .toList();
         _executions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      } else {
+        _executions = [];
       }
     } catch (e) {
       debugPrint('Load executions failed: $e');
@@ -48,8 +99,9 @@ class AlertStore extends ChangeNotifier {
   Future<void> _persistExecutions() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final key = '${_executionsKey}_$_currentUid';
       await prefs.setString(
-        _executionsKey,
+        key,
         jsonEncode(_executions.map((e) => e.toJson()).toList()),
       );
     } catch (e) {
@@ -60,7 +112,8 @@ class AlertStore extends ChangeNotifier {
   Future<void> _loadMarketRead() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getStringList(_readMarketKey);
+      final key = '${_readMarketKey}_$_currentUid';
+      final raw = prefs.getStringList(key);
       _readMarketIds = raw?.toSet() ?? {};
     } catch (_) {
       _readMarketIds = {};
@@ -70,7 +123,8 @@ class AlertStore extends ChangeNotifier {
   Future<void> _persistMarketRead() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_readMarketKey, _readMarketIds.toList());
+      final key = '${_readMarketKey}_$_currentUid';
+      await prefs.setStringList(key, _readMarketIds.toList());
     } catch (_) {}
   }
 

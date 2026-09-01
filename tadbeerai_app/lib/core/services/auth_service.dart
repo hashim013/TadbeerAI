@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'user_profile_service.dart';
+import 'alert_store.dart';
 
 class AuthService extends ChangeNotifier {
   static final AuthService instance = AuthService._internal();
@@ -22,6 +23,7 @@ class AuthService extends ChangeNotifier {
       FirebaseAuth.instance.authStateChanges().listen((User? user) {
         _user = user;
         if (user != null) _isGuest = false;
+        AlertStore.instance.updateCurrentUser();
         notifyListeners();
       });
     } catch (e) {
@@ -84,6 +86,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signInAsGuest() async {
     _isGuest = true;
+    await AlertStore.instance.updateCurrentUser();
     notifyListeners();
   }
 
@@ -95,6 +98,7 @@ class AuthService extends ChangeNotifier {
     _user = null;
     _isGuest = false;
     UserProfileService.instance.clearCache();
+    await AlertStore.instance.updateCurrentUser();
     notifyListeners();
   }
 

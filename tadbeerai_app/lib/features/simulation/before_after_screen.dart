@@ -433,8 +433,14 @@ class _BeforeAfterScreenState extends State<BeforeAfterScreen>
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AgentTraceScreen())),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AgentTraceScreen(
+                    steps: widget.result.agentTrace,
+                  ),
+                ),
+              ),
               icon: const Icon(Icons.account_tree_rounded, size: 15),
               label: Text('View trace'.tr(context)),
             ),

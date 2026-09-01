@@ -203,6 +203,12 @@ class NotificationService:
         diffs: list[dict] | None = None,
         notify_channels: list[str] | None = None,
         user_id: str | None = None,
+        insight: dict | None = None,
+        action_detail: str | None = None,
+        sms_draft: str | None = None,
+        business_math: str | None = None,
+        urgency: str | None = None,
+        timeline: str | None = None,
     ) -> Tuple[int, int, int, int, str, dict]:
         """
         Send SMS, email, and push notifications to registered users for an executed action.
@@ -217,6 +223,12 @@ class NotificationService:
             diffs: List of before/after state change dicts
             notify_channels: Filter channels requested (e.g., ['sms', 'email', 'push'])
             user_id: Optional ID of a single user to notify
+            insight: Optional insight dict
+            action_detail: Optional recommended action instruction/detail
+            sms_draft: Optional generated SMS draft text
+            business_math: Optional business recovery math
+            urgency: Optional urgency level
+            timeline: Optional timeline
 
         Returns:
             (users_reached, sms_sent, emails_sent, push_sent, summary_message, delivery_report)
@@ -291,6 +303,12 @@ class NotificationService:
                         domain=domain,
                         timestamp=timestamp,
                         diffs=diffs,
+                        insight=insight,
+                        action_detail=action_detail,
+                        sms_draft=sms_draft,
+                        business_math=business_math,
+                        urgency=urgency,
+                        timeline=timeline,
                     )
                 except Exception as e:
                     logger.error(f"[Notifications] ❌ Template format error for {user_name}: {e}")

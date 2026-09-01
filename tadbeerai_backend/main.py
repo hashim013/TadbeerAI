@@ -419,10 +419,14 @@ def simulate(request: SimulateRequest, authorization: Optional[str] = Header(Non
         else []
     )
 
+    insight_dict = trace_data.get("insight", {})
+    if "impacts" in trace_data:
+        insight_dict["impacts"] = trace_data["impacts"]
+
     result = simulate_action(
         actions=ordered_actions,
         domain=trace_data.get("domain", "Finance"),
-        insight=trace_data.get("insight", {}),
+        insight=insight_dict,
         user_id=user_id,
         notify_channels=request.notify_channels,
         user_profile=request.user_profile,
@@ -438,6 +442,7 @@ def simulate(request: SimulateRequest, authorization: Optional[str] = Header(Non
     with open(trace_path, "w") as f:
         json.dump(trace_data, f, default=str)
 
+    result["agent_trace"] = agent_trace
     return result
 
 

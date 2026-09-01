@@ -357,6 +357,7 @@ class SimulationResult {
     required this.execTimeSeconds,
     required this.execLog,
     this.deliveryReport,
+    this.agentTrace = const [],
   });
 
   final String insightSummary;
@@ -367,6 +368,7 @@ class SimulationResult {
   final double execTimeSeconds;
   final List<ExecLogLine> execLog;
   final DeliveryReport? deliveryReport;
+  final List<AgentStep> agentTrace;
 
   factory SimulationResult.fromJson(Map<String, dynamic> json) =>
       SimulationResult(
@@ -386,6 +388,11 @@ class SimulationResult {
                 json['delivery_report'] as Map<String, dynamic>,
               )
             : null,
+        agentTrace: json['agent_trace'] != null
+            ? (json['agent_trace'] as List)
+                .map((e) => AgentStep.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : const [],
       );
 }
 

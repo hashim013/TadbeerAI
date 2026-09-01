@@ -13,6 +13,7 @@ import 'package:tadbeerai/shared/theme/app_theme.dart';
 import 'package:tadbeerai/shared/widgets/shared_widgets.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../auth/auth_screen.dart';
+import '../profile/category_selector_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -433,13 +434,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: 'Display Name'.tr(context),
               icon: Icons.person_outline_rounded,
             ),
-            const SizedBox(height: 12),
-            TTextField(
-              controller: _cityCtrl,
-              label: 'City'.tr(context),
-              icon: Icons.location_on_outlined,
-            ),
-            const SizedBox(height: 16),
+             const SizedBox(height: 12),
+             TTextField(
+               controller: _cityCtrl,
+               label: 'City'.tr(context),
+               icon: Icons.location_on_outlined,
+             ),
+             const SizedBox(height: 12),
+             ListTile(
+               contentPadding: EdgeInsets.zero,
+               leading: Icon(categoryIcon, color: TColors.primary),
+               title: Text('Persona / Category'.tr(context)),
+               subtitle: Text(categoryDisplayName),
+               trailing: const Icon(Icons.chevron_right_rounded, color: TColors.primary),
+               onTap: () {
+                 Navigator.push(
+                   context,
+                   MaterialPageRoute(builder: (_) => const CategorySelectorScreen()),
+                 ).then((_) {
+                   setState(() {
+                     _loadData();
+                   });
+                 });
+               },
+             ),
+             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -664,7 +683,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AuthScreen()),
-              );
+              ).then((value) {
+                if (value == true && mounted) {
+                  _loadData();
+                }
+              });
             },
           ),
           const SizedBox(height: 12),

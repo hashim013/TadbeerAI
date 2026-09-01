@@ -12,7 +12,8 @@ import '../../shared/widgets/shared_widgets.dart';
 
 class AgentTraceScreen extends StatefulWidget {
   final String? insightId;
-  const AgentTraceScreen({super.key, this.insightId});
+  final List<AgentStep>? steps;
+  const AgentTraceScreen({super.key, this.insightId, this.steps});
 
   @override
   State<AgentTraceScreen> createState() => _AgentTraceScreenState();
@@ -30,6 +31,13 @@ class _AgentTraceScreenState extends State<AgentTraceScreen> {
   }
 
   Future<void> _loadTrace() async {
+    if (widget.steps != null && widget.steps!.isNotEmpty) {
+      setState(() {
+        _steps = widget.steps!;
+        _loading = false;
+      });
+      return;
+    }
     final steps = await ApiService.getTrace();
     setState(() {
       _steps = steps;

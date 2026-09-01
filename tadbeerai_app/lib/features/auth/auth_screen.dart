@@ -6,6 +6,8 @@ import 'package:hive/hive.dart';
 import 'package:tadbeerai/core/services/api_service.dart';
 import 'package:tadbeerai/core/services/auth_service.dart';
 import 'package:tadbeerai/core/models/user_profile_model.dart';
+import 'package:tadbeerai/core/models/user_profile.dart';
+import 'package:tadbeerai/core/services/user_profile_service.dart';
 import 'package:tadbeerai/core/providers/language_provider.dart';
 import 'package:tadbeerai/shared/theme/app_theme.dart';
 import 'package:tadbeerai/shared/widgets/shared_widgets.dart';
@@ -60,17 +62,32 @@ class _AuthScreenState extends State<AuthScreen> {
           
           if (existingProfile != null) {
             await box.put('user_profile', existingProfile.toJson());
+            
+            // Sync to UserProfileService / Firestore
+            final userProfile = UserProfile(
+              uid: user.uid,
+              email: existingProfile.email,
+              phone: existingProfile.phone,
+              displayName: existingProfile.name,
+              profileComplete: existingProfile.category.isNotEmpty && existingProfile.profileData.isNotEmpty,
+            );
+            await UserProfileService.instance.saveProfile(userProfile);
+
             if (existingProfile.category.isNotEmpty) {
               if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                );
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context, true);
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  );
+                }
               }
               return;
             }
           } else {
-            // Create new profile
+            // Create new profile (independent of guest profile)
             String fcmToken = '';
             try {
               fcmToken = await FirebaseMessaging.instance.getToken() ?? '';
@@ -100,6 +117,16 @@ class _AuthScreenState extends State<AuthScreen> {
               fcmToken: fcmToken,
               profileData: {},
             );
+
+            // Sync to UserProfileService / Firestore
+            final userProfile = UserProfile(
+              uid: user.uid,
+              email: profile.email,
+              phone: profile.phone,
+              displayName: profile.name,
+              profileComplete: false,
+            );
+            await UserProfileService.instance.saveProfile(userProfile);
           }
 
           if (mounted) {
@@ -125,7 +152,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isSignUp) {
-        // Sign Up Flow
+        // Sign Up Flow (independent of guest profile)
         final success = await AuthService.instance.signUpWithEmail(
           _emailCtrl.text.trim(),
           _passwordCtrl.text.trim(),
@@ -166,6 +193,16 @@ class _AuthScreenState extends State<AuthScreen> {
               profileData: {},
             );
 
+            // Sync to UserProfileService / Firestore
+            final userProfile = UserProfile(
+              uid: user.uid,
+              email: profile.email,
+              phone: profile.phone,
+              displayName: profile.name,
+              profileComplete: false,
+            );
+            await UserProfileService.instance.saveProfile(userProfile);
+
             if (mounted) {
               Navigator.pushReplacement(
                 context,
@@ -191,12 +228,26 @@ class _AuthScreenState extends State<AuthScreen> {
               final box = Hive.box<dynamic>('user_profile_box');
               await box.put('user_profile', profile.toJson());
               
+              // Sync to UserProfileService / Firestore
+              final userProfile = UserProfile(
+                uid: user.uid,
+                email: profile.email,
+                phone: profile.phone,
+                displayName: profile.name,
+                profileComplete: profile.category.isNotEmpty && profile.profileData.isNotEmpty,
+              );
+              await UserProfileService.instance.saveProfile(userProfile);
+
               if (profile.category.isNotEmpty) {
                 if (mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  );
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context, true);
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    );
+                  }
                 }
                 return;
               }

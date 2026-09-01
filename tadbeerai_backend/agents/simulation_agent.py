@@ -210,6 +210,11 @@ def simulate_action(
     # Build diffs for notification content
     diffs = _calculate_diffs(before_state, after_state)
 
+    # Generate intelligent SMS draft using Gemini
+    log("[Agent6]", "📝 Generating intelligent SMS draft...", "info")
+    sms_draft = _generate_sms_draft(domain, action_title, action_detail, insight, diffs, user_profile=user_profile)
+    log("[Agent6]", f"✅ SMS draft: {sms_draft[:60]}...", "ok")
+
     # Send notifications to registered users (skip gracefully in guest mode)
     if user_id is None or (user_profile and user_profile.get("mode") == "guest"):
         log("[Notifications]", "ℹ️ Guest mode: skipping real-time notification alerts", "info")
@@ -238,6 +243,12 @@ def simulate_action(
             diffs=diffs,
             notify_channels=notify_channels,
             user_id=user_id,
+            insight=insight,
+            action_detail=action_detail,
+            sms_draft=sms_draft,
+            business_math=top_action.get("business_math", ""),
+            urgency=top_action.get("urgency", ""),
+            timeline=top_action.get("timeline", ""),
         )
         if users_reached > 0:
             log("[Notifications]", f"✅ Alerts sent: {notif_msg}", "ok")
@@ -246,11 +257,6 @@ def simulate_action(
 
     # Calculate execution time
     exec_time = (datetime.now() - start_time).total_seconds()
-
-    # Generate intelligent SMS draft using Gemini
-    log("[Agent6]", "📝 Generating intelligent SMS draft...", "info")
-    sms_draft = _generate_sms_draft(domain, action_title, action_detail, insight, diffs, user_profile=user_profile)
-    log("[Agent6]", f"✅ SMS draft: {sms_draft[:60]}...", "ok")
 
     log("[Agent6]", f"✅ REAL EXECUTION COMPLETE · {len(diffs)} state changes · {users_reached} users notified · {exec_time:.2f}s", "ok")
 
